@@ -12,6 +12,7 @@ both would silently inflate the gold event set.
 
 from __future__ import annotations
 
+import csv
 import json
 import math
 from collections import Counter
@@ -167,6 +168,8 @@ class AgreementReport:
     disagreements: list[tuple[str, str]]
     verdict: str
     perfect_agreement: bool = False
+    only_in_a: list[str] = field(default_factory=list)
+    only_in_b: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         alpha_line = (
@@ -187,6 +190,15 @@ class AgreementReport:
                 "undefined. On a real pilot this means the sample was too easy "
                 "or too small -- widen it before trusting the gate."
             )
+        if self.only_in_a or self.only_in_b:
+            lines.append(
+                "\nWarning: reviews annotated by only one annotator are left out "
+                "of the comparison. Finish them, or confirm they were meant to "
+                "be excluded:"
+            )
+            for side, review_ids in (("A", self.only_in_a), ("B", self.only_in_b)):
+                if review_ids:
+                    lines.append(f"  only in {side}: {', '.join(review_ids)}")
         return "\n".join(lines)
 
 
@@ -199,6 +211,9 @@ def agreement_report(
     Each (review, event) pair seen by either annotator becomes one binary
     decision -- did this annotator mark this event present? That is the unit
     alpha is computed over, and it is the level the coverage loss operates at.
+
+    Reviews present in only one file cannot be compared; they are listed on the
+    report rather than dropped without a trace.
     """
     shared = sorted(set(annotator_a) & set(annotator_b))
 
@@ -238,4 +253,154 @@ def agreement_report(
         disagreements=disagreements,
         verdict=verdict,
         perfect_agreement=perfect,
+        only_in_a=sorted(set(annotator_a) - set(annotator_b)),
+        only_in_b=sorted(set(annotator_b) - set(annotator_a)),
     )
+
+
+def canonicalise(
+    events_by_review: Mapping[str, set[str]],
+    table: Mapping[str, str],
+) -> dict[str, set[str]]:
+    """Map every label through the synonym table, returning new sets.
+
+    Agreement is compared on exact strings, so "drowsy" against "drowsiness" is
+    otherwise a disagreement. Merging labels can remove disagreements but never
+    add one, so report agreement before and after the table -- the gap is how
+    much the table did, and a reader can judge whether it did too much.
+    """
+    return {
+        review_id: {normalise_event(label, table) for label in labels}
+        for review_id, labels in events_by_review.items()
+    }
+
+
+def load_synonym_table(path: str | Path) -> dict[str, str]:
+    """Read a `surface,canonical` CSV into the table `normalise_event` expects.
+
+    A surface form mapped to two different labels is an error rather than
+    last-row-wins, which would make the merge depend on row order.
+    """
+    table: dict[str, str] = {}
+    # utf-8-sig: Excel prepends a byte-order mark when it saves CSV.
+    with Path(path).open(encoding="utf-8-sig", newline="") as fh:
+        reader = csv.DictReader(fh)
+        if not {"surface", "canonical"} <= set(reader.fieldnames or []):
+            raise ValueError(
+                f"{path}: expected a 'surface,canonical' header, got {reader.fieldnames}"
+            )
+        for row in reader:
+            surface = (row["surface"] or "").strip().lower()
+            canonical = (row["canonical"] or "").strip().lower()
+            if not surface or not canonical:
+                continue
+            if table.get(surface, canonical) != canonical:
+                raise ValueError(
+                    f"{path}: {surface!r} maps to both {table[surface]!r} and {canonical!r}"
+                )
+            table[surface] = canonical
+    return table
+
+
+# Event slots per review row in the annotation sheet.
+N_EVENT_SLOTS = 8
+
+_DONE_VALUES = {"yes", "y", "x", "true", "1", "1.0"}
+_SLOT_FIELDS = ("span", "event", "certainty", "attribution")
+
+
+class AnnotationSheetError(ValueError):
+    """Every problem found in a filled sheet, so it can be fixed in one pass."""
+
+    def __init__(self, problems: Sequence[str]):
+        self.problems = list(problems)
+        super().__init__(
+            f"{len(self.problems)} problem(s) in the annotation sheet:\n  "
+            + "\n  ".join(self.problems)
+        )
+
+
+def parse_sheet_rows(
+    rows: Iterable[Mapping[str, object]],
+    n_slots: int = N_EVENT_SLOTS,
+) -> list[ReviewAnnotation]:
+    """Turn filled sheet rows into annotations, refusing anything ambiguous.
+
+    Each row is one review, with event slots `span_i`, `event_i`, `certainty_i`
+    and `attribution_i` for i in 1..n_slots. Refusals, and why:
+
+    - A review not marked `done` is rejected, never read as "no adverse
+      events". `agreement_report` compares only reviews both annotators have,
+      so a skipped review would silently leave the comparison.
+    - Blank certainty or attribution is rejected, never defaulted. Negation and
+      condition-attribution are the failure modes the pilot watches; a default
+      would record a decision nobody made.
+    - A partly filled slot is rejected, and so is a duplicated review.
+
+    Problems are collected across the whole sheet and raised together.
+    """
+    certainties = {c.value for c in Certainty}
+    attributions = {a.value for a in Attribution}
+    annotations: list[ReviewAnnotation] = []
+    problems: list[str] = []
+    seen: set[str] = set()
+
+    # Row 1 of the sheet is the header, so data starts at row 2.
+    for sheet_row, row in enumerate(rows, start=2):
+        review_id = _cell(row.get("review_id"))
+        if not review_id:
+            problems.append(f"row {sheet_row}: missing review_id")
+            continue
+        where = f"{review_id} (row {sheet_row})"
+        if review_id in seen:
+            problems.append(f"{where}: duplicate review_id")
+            continue
+        seen.add(review_id)
+
+        row_problems: list[str] = []
+        if _cell(row.get("done")).lower() not in _DONE_VALUES:
+            row_problems.append(f"{where}: not marked done")
+
+        events: list[AdverseEvent] = []
+        for i in range(1, n_slots + 1):
+            span, event, certainty, attribution = (
+                _cell(row.get(f"{name}_{i}")) for name in _SLOT_FIELDS
+            )
+            certainty, attribution = certainty.lower(), attribution.lower()
+            if not (span or event or certainty or attribution):
+                continue
+
+            issues = [
+                f"missing {name}"
+                for name, value in zip(_SLOT_FIELDS, (span, event, certainty, attribution))
+                if not value
+            ]
+            if certainty and certainty not in certainties:
+                issues.append(f"certainty {certainty!r} is not one of {sorted(certainties)}")
+            if attribution and attribution not in attributions:
+                issues.append(f"attribution {attribution!r} is not one of {sorted(attributions)}")
+            if issues:
+                row_problems.append(f"{where} slot {i}: {'; '.join(issues)}")
+                continue
+
+            events.append(
+                AdverseEvent(
+                    span=span,
+                    event=normalise_event(event, {}),
+                    certainty=Certainty(certainty),
+                    attribution=Attribution(attribution),
+                )
+            )
+
+        problems.extend(row_problems)
+        if not row_problems:
+            annotations.append(ReviewAnnotation(review_id=review_id, events=events))
+
+    if problems:
+        raise AnnotationSheetError(problems)
+    return annotations
+
+
+def _cell(value: object) -> str:
+    """A sheet cell as stripped text; an empty cell (None) becomes ''."""
+    return "" if value is None else str(value).strip()

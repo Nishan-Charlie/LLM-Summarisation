@@ -211,3 +211,89 @@ def classify_ae_condition(per_review_events: Sequence[set[str]]) -> str:
     if len(counts) >= DENSE_THRESHOLD:
         return "ae_dense"
     return "ae_sparse"
+
+
+def select_annotation_batch(
+    reviews: pd.DataFrame,
+    batch_size: int,
+    n_drugs: int,
+    n_reviews: int = 8,
+    seed: int = 0,
+    exclude_splits: Iterable[str] = ("test",),
+    split_col: str = "split",
+    product_col: str = "product_id",
+    id_col: str = "review_id",
+) -> pd.DataFrame:
+    """Draw reviews to annotate, spread evenly across drugs that can form an instance.
+
+    Only drugs with at least `n_reviews` reviews are eligible -- the rule
+    `build_instances` applies -- so every label is reusable in the bulk set. The
+    first pilot drew from any drug, and half its reviews came from drugs no
+    instance can ever use (`tests/test_pilot_batch.py`).
+
+    Raises rather than shrinking the batch or relaxing eligibility: a quietly
+    smaller or skewed batch is what went unnoticed the first time.
+    """
+    excluded = set(exclude_splits)
+    candidates = reviews[~reviews[split_col].isin(excluded)] if excluded else reviews
+    sizes = candidates[product_col].value_counts()
+    eligible = sorted(sizes[sizes >= n_reviews].index)
+    if len(eligible) < n_drugs:
+        raise ValueError(
+            f"only {len(eligible)} eligible drugs (>= {n_reviews} reviews, not in "
+            f"{sorted(excluded)}), but {n_drugs} were requested"
+        )
+
+    rng = np.random.default_rng(seed)
+    chosen = [eligible[i] for i in rng.permutation(len(eligible))[:n_drugs]]
+    return _round_robin(candidates, chosen, batch_size, rng, product_col, id_col)
+
+
+def select_agreement_subset(
+    batch: pd.DataFrame,
+    size: int,
+    seed: int = 0,
+    product_col: str = "product_id",
+    id_col: str = "review_id",
+) -> pd.DataFrame:
+    """Pick the reviews a second annotator labels, spread across the batch's drugs.
+
+    Agreement measured mostly on one drug's vocabulary would say little about
+    the schema, so the subset is spread the same way the batch is.
+    """
+    rng = np.random.default_rng(seed)
+    drugs = sorted(batch[product_col].unique())
+    order = [drugs[i] for i in rng.permutation(len(drugs))]
+    return _round_robin(batch, order, size, rng, product_col, id_col)
+
+
+def _round_robin(
+    frame: pd.DataFrame,
+    drugs: Sequence[str],
+    size: int,
+    rng: np.random.Generator,
+    product_col: str,
+    id_col: str,
+) -> pd.DataFrame:
+    """Take one review per drug per round, in `drugs` order, until `size` rows.
+
+    Each drug's reviews are sorted by id before the seeded shuffle, so the draw
+    depends on the seed and the review set, never on row order.
+    """
+    queues: dict[str, list[Any]] = {}
+    for drug in drugs:
+        group = frame[frame[product_col] == drug].sort_values(id_col)
+        queues[drug] = list(group.index[rng.permutation(len(group))])
+
+    available = sum(len(queue) for queue in queues.values())
+    if size > available:
+        raise ValueError(
+            f"cannot fill {size} reviews from {len(drugs)} drugs holding {available}"
+        )
+
+    picked: list[Any] = []
+    while len(picked) < size:
+        for drug in drugs:
+            if queues[drug] and len(picked) < size:
+                picked.append(queues[drug].pop())
+    return frame.loc[picked].reset_index(drop=True)

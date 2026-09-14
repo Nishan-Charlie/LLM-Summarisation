@@ -14,11 +14,10 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from fairsum.data import build_review_pool, load_druglib_raw
-from fairsum.instances import assign_drug_splits, build_instances
+from fairsum.instances import assign_drug_splits, build_instances, select_annotation_batch
 
 
 def main() -> int:
@@ -84,39 +83,25 @@ def main() -> int:
           "the Day 5 question (`Calibration Design`).")
 
     if args.annotation_batch:
-        rng = np.random.default_rng(args.seed)
-        candidates = pool[pool["split"] != "test"]
-        drugs = list(candidates["product_id"].unique())
-        rng.shuffle(drugs)
-        chosen = drugs[: max(args.annotation_drugs, 1)]
-
-        # Round-robin across drugs so the batch reaches the requested size even
-        # when some drugs have few reviews, and stays spread rather than
-        # concentrating on whichever drugs happen to be large.
-        by_drug = {
-            drug: group.sample(frac=1.0, random_state=args.seed).to_dict("records")
-            for drug, group in candidates[
-                candidates["product_id"].isin(chosen)
-            ].groupby("product_id")
-        }
-        picked_rows = []
-        while len(picked_rows) < args.annotation_batch and any(by_drug.values()):
-            for drug in list(by_drug):
-                if not by_drug[drug]:
-                    continue
-                picked_rows.append(by_drug[drug].pop())
-                if len(picked_rows) >= args.annotation_batch:
-                    break
-        picked = pd.DataFrame(picked_rows)
+        # Only drugs that can form an instance, spread evenly. The first pilot
+        # took any drug, and half its reviews could never be used downstream.
+        picked = select_annotation_batch(
+            pool,
+            batch_size=args.annotation_batch,
+            n_drugs=args.annotation_drugs,
+            n_reviews=args.n_reviews,
+            seed=args.seed,
+        )
 
         batch_path = args.out / "annotation_batch_pilot.csv"
         picked[["review_id", "product_id", "condition_name", "text"]].to_csv(
             batch_path, index=False
         )
+        per_drug = picked["product_id"].value_counts()
         print(f"\nAnnotation pilot batch: {len(picked)} reviews across "
-              f"{picked['product_id'].nunique()} drugs -> {batch_path}")
-        print("Annotate with fairsum.annotation.AdverseEvent "
-              "(span, event, certainty, attribution), save as JSONL.")
+              f"{len(per_drug)} drugs ({per_drug.min()}-{per_drug.max()} each) -> {batch_path}")
+        print("Export a sheet to annotate: python scripts/annotation_sheet.py export "
+              f"--batch {batch_path} --out annotations/<name>.xlsx")
         print("Watch for the two failure modes: negation and condition-attribution.")
 
     print(f"\nManifest: {args.out / 'split_manifest.json'}")

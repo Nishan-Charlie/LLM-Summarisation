@@ -14,8 +14,9 @@ Design notes live in the Obsidian vault at
 
 ```bash
 pip install -e ".[dev]"          # pure-logic modules + tests
+pip install -e ".[dev,annotate]" # adds openpyxl for the annotation sheet
 pip install -e ".[dev,gen]"      # adds torch / transformers for generation
-pytest                           # 201 tests, ~1s
+pytest                           # 280 tests, ~2s
 ```
 
 Verified on Python 3.12.3, torch 2.6.0+cu124, transformers 5.2.0,
