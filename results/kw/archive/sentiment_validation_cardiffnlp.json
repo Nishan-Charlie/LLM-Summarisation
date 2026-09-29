@@ -1,0 +1,10 @@
+{
+  "n": 400,
+  "accuracy": 0.76,
+  "neutral_rate": 0.1375,
+  "by_dataset": {
+    "amazon": 0.842391304347826,
+    "drugs": 0.6898148148148148
+  },
+  "passes": false
+}

@@ -1,8 +1,13 @@
-"""Day 4 -- the schema gate.
+"""Day 4 -- the schema gate, on pairwise F1 over (review, event) decisions.
 
-    alpha >= 0.7  freeze the schema, start bulk annotation
-    0.6 - 0.7     one revision, re-pilot on 30 fresh reviews
-    alpha <  0.6  stop; the construct is not annotatable as defined
+    F1 >= 0.8    freeze the schema, start bulk annotation
+    0.7 - 0.8    one revision, re-pilot on 30 fresh reviews
+    F1 <  0.7    stop; the construct is not annotatable as defined
+
+Re-registered 2026-09-14, before any annotation. The Week 1 plan gated on alpha
+over the same decisions, which has no "both absent" pairs and could only pass at
+100% agreement. Krippendorff's alpha under MASI distance is printed beside F1 as
+the chance-corrected figure.
 
 Usage:
     python scripts/check_agreement.py --a annotations/nishan.jsonl --b annotations/prathyuman.jsonl
@@ -65,8 +70,8 @@ def main() -> int:
         "freeze": "GATE PASSED -- freeze the schema and start bulk annotation.",
         "revise": "BORDERLINE -- one schema revision, then re-pilot on 30 fresh reviews.",
         "stop": "GATE FAILED -- stop. Rethink the construct before annotating further.",
-        "undefined": "UNDEFINED -- not enough rating variance to compute alpha. "
-                     "Widen the pilot sample.",
+        "undefined": "UNDEFINED -- neither annotator marked any adverse event, so "
+                     "there is nothing to agree on. Widen the pilot sample.",
     }[report.verdict])
     return 0 if report.verdict in ("freeze", "revise") else 1
 

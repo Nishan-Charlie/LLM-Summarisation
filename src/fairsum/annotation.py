@@ -19,11 +19,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
-
-# Day 4 gates from the Week 1 plan.
-FREEZE_THRESHOLD = 0.7
-STOP_THRESHOLD = 0.6
+from typing import Callable, Iterable, Mapping, Sequence
 
 
 class Certainty(Enum):
@@ -159,8 +155,93 @@ def krippendorff_alpha(ratings: Mapping[str, Sequence[object]]) -> float:
     return 1.0 - d_observed / d_expected
 
 
+def masi_distance(a: Iterable[str], b: Iterable[str]) -> float:
+    """MASI distance between two label sets (Passonneau, LREC 2006).
+
+    Similarity is Jaccard overlap weighted by how the sets relate: 1 when they
+    are identical, 2/3 when one contains the other, 1/3 when they overlap
+    without containment, 0 when disjoint. Distance is one minus that.
+
+    Two empty sets are identical: both annotators saying a review reports no
+    adverse events is agreement, not a division by zero.
+    """
+    a, b = set(a), set(b)
+    if a == b:
+        return 0.0
+    shared = len(a & b)
+    if shared == 0:
+        return 1.0
+    weight = 2 / 3 if (a <= b or b <= a) else 1 / 3
+    return 1.0 - (shared / len(a | b)) * weight
+
+
+def krippendorff_alpha_distance(
+    ratings: Mapping[str, Sequence[object]],
+    distance: Callable[[object, object], float],
+) -> float:
+    """Krippendorff's alpha under any distance between values.
+
+    The same coincidence form as `krippendorff_alpha`, which is the special case
+    of a 0/1 distance. Values must be hashable -- pass sets as frozensets. NaN
+    when every value is identical, for the same reason as the nominal form.
+    """
+    units = [[v for v in vals if v is not None] for vals in ratings.values()]
+    units = [u for u in units if len(u) >= 2]
+    if not units:
+        raise ValueError("no pairable units: every unit needs at least two ratings")
+
+    n_total = sum(len(u) for u in units)
+    d_observed = sum(
+        sum(distance(x, y) for i, x in enumerate(u) for j, y in enumerate(u) if i != j)
+        / (len(u) - 1)
+        for u in units
+    ) / n_total
+
+    # Pairs of identical values contribute zero distance, so only distinct
+    # values need pairing, weighted by how often each occurs.
+    totals = Counter(v for u in units for v in u)
+    values = list(totals)
+    d_expected = sum(
+        totals[x] * totals[y] * distance(x, y)
+        for i, x in enumerate(values)
+        for j, y in enumerate(values)
+        if i != j
+    ) / (n_total * (n_total - 1))
+
+    if d_expected == 0:
+        return math.nan
+    return 1.0 - d_observed / d_expected
+
+
+# The Day 4 gate, re-registered 2026-09-14 before any annotation existed. The
+# Week 1 plan gated on binary alpha over (review, event) pairs; with no "both
+# absent" pairs that equals (1 - d) / (2a + d) and could only pass at 100%
+# agreement (tests/test_agreement_gate.py). When true negatives are undefined,
+# pairwise F1 is the standard agreement measure (Hripcsak & Rothschild, 2005).
+F1_FREEZE_THRESHOLD = 0.8
+F1_STOP_THRESHOLD = 0.7
+
+
+def pairwise_f1(
+    annotator_a: Mapping[str, set[str]],
+    annotator_b: Mapping[str, set[str]],
+) -> float:
+    """Positive specific agreement over the reviews both annotators labelled.
+
+    2 * |marked by both| / (|marked by A| + |marked by B|), counted per (review,
+    event). Symmetric, and equal to F1 with either annotator as the reference.
+    NaN when neither annotator marked anything: there is nothing to agree on.
+    """
+    shared = set(annotator_a) & set(annotator_b)
+    both = sum(len(annotator_a[r] & annotator_b[r]) for r in shared)
+    marked = sum(len(annotator_a[r]) + len(annotator_b[r]) for r in shared)
+    return math.nan if marked == 0 else 2 * both / marked
+
+
 @dataclass
 class AgreementReport:
+    f1: float
+    # Krippendorff's alpha under MASI distance, one unit per review.
     alpha: float
     n_reviews: int
     n_events: int
@@ -172,12 +253,9 @@ class AgreementReport:
     only_in_b: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
-        alpha_line = (
-            "undefined (no rating variance)" if math.isnan(self.alpha)
-            else f"{self.alpha:.4f}"
-        )
         lines = [
-            f"Krippendorff alpha : {alpha_line}",
+            f"F1 (gate)          : {_format_statistic(self.f1)}",
+            f"MASI alpha         : {_format_statistic(self.alpha)}",
             f"reviews compared   : {self.n_reviews}",
             f"event decisions    : {self.n_events}",
             f"disagreements      : {self.n_disagreements}",
@@ -185,10 +263,9 @@ class AgreementReport:
         ]
         if self.perfect_agreement:
             lines.append(
-                "\nNote: annotators agreed on every decision, so there is no "
-                "expected disagreement to normalise against and alpha is "
-                "undefined. On a real pilot this means the sample was too easy "
-                "or too small -- widen it before trusting the gate."
+                "\nNote: annotators agreed on every event. On a real pilot this "
+                "usually means the sample was too easy or too small -- widen it "
+                "before trusting the gate."
             )
         if self.only_in_a or self.only_in_b:
             lines.append(
@@ -202,57 +279,63 @@ class AgreementReport:
         return "\n".join(lines)
 
 
+def _format_statistic(value: float) -> str:
+    return "undefined" if math.isnan(value) else f"{value:.4f}"
+
+
 def agreement_report(
     annotator_a: Mapping[str, set[str]],
     annotator_b: Mapping[str, set[str]],
 ) -> AgreementReport:
     """Compare two annotators' event sets at the normalised-label level.
 
-    Each (review, event) pair seen by either annotator becomes one binary
-    decision -- did this annotator mark this event present? That is the unit
-    alpha is computed over, and it is the level the coverage loss operates at.
+    The gate is pairwise F1 over (review, event) decisions -- the level the
+    coverage loss operates at. Krippendorff's alpha under MASI distance, one
+    unit per review, is reported beside it as the chance-corrected figure;
+    unlike F1 it counts a review both annotators left empty as agreement.
 
     Reviews present in only one file cannot be compared; they are listed on the
     report rather than dropped without a trace.
     """
     shared = sorted(set(annotator_a) & set(annotator_b))
 
-    ratings: dict[str, list[object]] = {}
+    n_events = 0
     disagreements: list[tuple[str, str]] = []
     for review_id in shared:
         events_a, events_b = annotator_a[review_id], annotator_b[review_id]
         for event in sorted(events_a | events_b):
-            in_a, in_b = int(event in events_a), int(event in events_b)
-            ratings[f"{review_id}::{event}"] = [in_a, in_b]
-            if in_a != in_b:
+            n_events += 1
+            if (event in events_a) != (event in events_b):
                 disagreements.append((review_id, event))
 
-    alpha = krippendorff_alpha(ratings) if ratings else math.nan
+    f1 = pairwise_f1(annotator_a, annotator_b)
+    alpha = (
+        krippendorff_alpha_distance(
+            {r: [frozenset(annotator_a[r]), frozenset(annotator_b[r])] for r in shared},
+            masi_distance,
+        )
+        if shared
+        else math.nan
+    )
 
-    # Alpha is undefined when no rating varies, which happens either because
-    # there is nothing to compare or because the annotators agreed on
-    # everything. Those are opposite situations and must not share a verdict.
-    perfect = bool(ratings) and len(disagreements) == 0 and math.isnan(alpha)
-
-    if perfect:
-        verdict = "freeze"
-    elif math.isnan(alpha):
+    if math.isnan(f1):
         verdict = "undefined"
-    elif alpha >= FREEZE_THRESHOLD:
+    elif f1 >= F1_FREEZE_THRESHOLD:
         verdict = "freeze"
-    elif alpha >= STOP_THRESHOLD:
+    elif f1 >= F1_STOP_THRESHOLD:
         verdict = "revise"
     else:
         verdict = "stop"
 
     return AgreementReport(
+        f1=f1,
         alpha=alpha,
         n_reviews=len(shared),
-        n_events=len(ratings),
+        n_events=n_events,
         n_disagreements=len(disagreements),
         disagreements=disagreements,
         verdict=verdict,
-        perfect_agreement=perfect,
+        perfect_agreement=n_events > 0 and not disagreements,
         only_in_a=sorted(set(annotator_a) - set(annotator_b)),
         only_in_b=sorted(set(annotator_b) - set(annotator_a)),
     )

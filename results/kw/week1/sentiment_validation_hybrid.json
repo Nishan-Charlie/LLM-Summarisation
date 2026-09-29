@@ -1,0 +1,18 @@
+{
+  "n": 400,
+  "accuracy": 0.8,
+  "polar_accuracy": 0.927536231884058,
+  "neutral_rate": 0.1375,
+  "neutral_rate_by_polarity": {
+    "negative": 0.08780487804878048,
+    "positive": 0.18974358974358974
+  },
+  "by_dataset": {
+    "amazon": 0.875,
+    "drugs": 0.7361111111111112
+  },
+  "passes": true,
+  "sentiment_model": "siebert/sentiment-roberta-large-english",
+  "neutral_model": "cardiffnlp/twitter-roberta-base-sentiment-latest",
+  "instrument": "hybrid"
+}

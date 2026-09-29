@@ -12,3 +12,6 @@ venv/
 # OS
 Thumbs.db
 .DS_Store
+
+# Keyword study: regenerable review pools (hundreds of MB)
+data/kw/pools/

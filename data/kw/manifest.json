@@ -1,0 +1,40 @@
+{
+  "seed": 42,
+  "n_test": 60,
+  "n_dev": 10,
+  "levels": [
+    "bal",
+    "pos75",
+    "pos88",
+    "neg75",
+    "neg88"
+  ],
+  "dev_fraction": 0.2,
+  "n_collections": 700,
+  "pools": {
+    "amazon": {
+      "reviews": 142541,
+      "entities": 31918,
+      "positive_share": 0.756,
+      "eligible_entities_by_level": {
+        "bal": 1308,
+        "pos75": 1920,
+        "pos88": 2216,
+        "neg75": 923,
+        "neg88": 778
+      }
+    },
+    "drugs": {
+      "reviews": 68261,
+      "entities": 2685,
+      "positive_share": 0.7196,
+      "eligible_entities_by_level": {
+        "bal": 673,
+        "pos75": 814,
+        "pos88": 876,
+        "neg75": 540,
+        "neg88": 493
+      }
+    }
+  }
+}

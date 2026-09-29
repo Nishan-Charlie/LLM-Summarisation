@@ -147,6 +147,7 @@ class BatchedGenerator:
         temperature: float = 0.8,
         seed: int = 0,
         greedy: bool = False,
+        repetition_penalty: float | None = None,
     ) -> list[list[tuple[str, int, int]]]:
         """Generate k samples per prompt.
 
@@ -177,6 +178,7 @@ class BatchedGenerator:
                     do_sample=not greedy,
                     temperature=None if greedy else temperature,
                     top_p=None if greedy else 0.95,
+                    repetition_penalty=repetition_penalty,
                     pad_token_id=self.tokenizer.pad_token_id,
                 )
 

@@ -1,0 +1,12 @@
+{
+  "n": 400,
+  "accuracy": 0.91,
+  "neutral_rate": 0.0,
+  "by_dataset": {
+    "amazon": 0.9293478260869565,
+    "drugs": 0.8935185185185185
+  },
+  "passes": true,
+  "model": "siebert/sentiment-roberta-large-english",
+  "neutral_band": 0.8
+}

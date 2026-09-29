@@ -1,9 +1,9 @@
 """Annotation schema and inter-annotator agreement.
 
-Day 4 of the Week 1 plan is a hard gate: alpha >= 0.7 freezes the schema,
-alpha < 0.6 stops the project until the construct is redefined. So the alpha
-implementation has to be right, and these tests check it against cases whose
-answers are known by hand rather than by running the code.
+Day 4 of the Week 1 plan is a hard gate on annotator agreement, so the
+statistics have to be right, and these tests check them against cases whose
+answers are known by hand rather than by running the code. The gate itself --
+pairwise F1, and why it replaced alpha -- is tested in test_agreement_gate.py.
 
 Negation and attribution are the failure modes the pilot is watching for:
 "no side effects at all" and "the pain was from the fibromyalgia, not the drug"
@@ -142,13 +142,15 @@ class TestKrippendorffAlpha:
 
 
 class TestAgreementReport:
-    def test_total_agreement_is_flagged_rather_than_scored_as_alpha_one(self):
-        # Every rating is 1, so there is no expected disagreement to normalise
-        # against and alpha is genuinely undefined. Coercing it to 1.0 would be
-        # the same silent-fallback mistake as v1's degenerate judge rows.
+    def test_total_agreement_passes_but_is_flagged_as_suspiciously_easy(self):
+        # F1 is well defined at 1.0, so the gate passes, but a pilot with no
+        # disagreement at all usually means the sample was too easy or too
+        # small, and the report says so. This test used to assert that binary
+        # alpha was undefined here; test_agreement_gate.py explains the change.
         a = {"r1": {"dry skin"}, "r2": {"nausea"}}
         report = agreement_report(a, dict(a))
-        assert math.isnan(report.alpha)
+        assert report.f1 == pytest.approx(1.0)
+        assert report.verdict == "freeze"
         assert report.perfect_agreement is True
         assert report.n_disagreements == 0
 
