@@ -14,6 +14,7 @@ from fairsum.kwsum.stats import (
     holm,
     level_interaction_p,
     per_level_effects,
+    polarity_only_view,
     run_tests,
     wilcoxon_p,
     worst_case_fill,

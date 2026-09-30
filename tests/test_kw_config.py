@@ -11,8 +11,11 @@ def test_week1_config_loads():
     cfg = load_config(CONFIG)
     assert cfg.n_test == 60 and cfg.n_dev == 10
     assert len(cfg.conditions) == 9
-    assert cfg.model("llama3.1-8b").load_in_4bit
+    # Meta's 8B repo is gated for this account: a pre-quantised copy of the same weights
+    assert cfg.model("llama3.1-8b").model_id == "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
+    assert not cfg.model("llama3.1-8b").load_in_4bit
     assert cfg.model("llama3.2-3b").batch_size == 8
+    assert cfg.model("llama3.2-1b").model_id == "meta-llama/Llama-3.2-1B-Instruct"
     assert cfg.sentiment_model == "siebert/sentiment-roberta-large-english"
     assert cfg.neutral_model == "cardiffnlp/twitter-roberta-base-sentiment-latest"
 

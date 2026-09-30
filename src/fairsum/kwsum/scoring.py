@@ -24,7 +24,8 @@ from fairsum.metrics import MetricStatus, fairsum_metrics
 #: reused on resume and are dropped by the analysis (final review, finding I5).
 #: v2: count-statement handling, summary-header trimming, truncated tails,
 #: status recomputed at scoring time, hybrid sentiment.
-SCORER_VERSION = "2"
+#: v3: polarity-only robustness variants of the proportion metrics.
+SCORER_VERSION = "3"
 
 ID_FIELDS = ("collection_id", "dataset", "split", "level", "condition", "model")
 METRIC_FIELDS = (
@@ -36,6 +37,11 @@ METRIC_FIELDS = (
     "attribution_share_minority",
     "n_polar_props", "summary_neg_share", "source_neg_share", "delta_p",
     "majority_amplification", "fairsum_status", "bur", "uer", "sof", "spd",
+    # Robustness: the same proportions from the polarity model alone (no neutral gate).
+    # The gate neutralises positive reviews more often than negative ones (0.19 vs 0.09),
+    # so every proportion result is also reported without it.
+    "summary_neg_share_polarity_only", "delta_p_polarity_only",
+    "majority_amplification_polarity_only",
 )
 _NUMBER = re.compile(r"\b\d+(?:\.\d+)?\b")
 _WORD = re.compile(r"[a-z0-9]+")
@@ -181,13 +187,22 @@ def score_generation(gen: Mapping, collection: Collection, keywords: Mapping,
     row.update(matrix_metrics(entail, contra, threshold))
     row.update(coverage_recalls(entail, collection.polarities, collection.majority, threshold))
 
-    labels = sentiment.labels(props)
+    if hasattr(sentiment, "labels_both"):
+        labels, polarity_labels = sentiment.labels_both(props)
+    else:
+        labels, polarity_labels = sentiment.labels(props), None
     row["n_polar_props"] = sum(label in ("positive", "negative") for label in labels)
     neg = summary_neg_share(labels)
     row["summary_neg_share"] = neg
     if neg is not None:
         row["delta_p"] = abs(neg - collection.source_neg_share)
         row["majority_amplification"] = majority_amplification(neg, collection)
+    if polarity_labels is not None:
+        neg_p = summary_neg_share(polarity_labels)
+        row["summary_neg_share_polarity_only"] = neg_p
+        if neg_p is not None:
+            row["delta_p_polarity_only"] = abs(neg_p - collection.source_neg_share)
+            row["majority_amplification_polarity_only"] = majority_amplification(neg_p, collection)
 
     fm = fairsum_metrics(
         {"positive": collection.n_pos, "negative": collection.n_neg},
@@ -266,7 +281,12 @@ class HybridSentiment:
         self.polarity = polarity
 
     def labels(self, texts: Sequence[str]) -> list[str]:
-        return combine_labels(self.gate.labels(texts), self.polarity.labels(texts))
+        return self.labels_both(texts)[0]
+
+    def labels_both(self, texts: Sequence[str]) -> tuple[list[str], list[str]]:
+        """(hybrid labels, polarity-model-only labels), classifying each text once."""
+        polarity = self.polarity.labels(texts)
+        return combine_labels(self.gate.labels(texts), polarity), polarity
 
 
 def _normalise_label(name: str) -> str:
@@ -340,3 +360,13 @@ class HFSentiment:
                 probs = self.model(**enc).logits.float().softmax(-1).cpu().numpy()
             out.extend(labels_from_probs(probs, self.names, self.neutral_band))
         return out
+
+
+def build_sentiment(sentiment_model: str, neutral_model: str | None = None,
+                    device: str | None = None):
+    """The sentiment instrument as run: the polarity model, with a 3-class neutral gate
+    in front when one is configured. Scoring and the human check both build it here."""
+    if neutral_model:
+        return HybridSentiment(HFSentiment(neutral_model, device=device),
+                               HFSentiment(sentiment_model, device=device, neutral_band=0.0))
+    return HFSentiment(sentiment_model, device=device)

@@ -212,6 +212,20 @@ def per_level_effects(scores: pd.DataFrame,
     return pd.DataFrame(rows)
 
 
+def polarity_only_view(scores: pd.DataFrame) -> pd.DataFrame:
+    """Scores with the proportion metrics taken from the polarity model alone.
+
+    Running the registered tests on this view is the robustness check for the
+    neutral gate's asymmetry (it neutralises positive text more than negative).
+    """
+    out = scores.copy()
+    for metric in ("summary_neg_share", "delta_p", "majority_amplification"):
+        alt = f"{metric}_polarity_only"
+        if alt in out.columns:
+            out[metric] = out[alt]
+    return out
+
+
 def worst_case_fill(scores: pd.DataFrame) -> pd.DataFrame:
     """Sensitivity analysis (spec §5): score every failure as badly as possible.
 

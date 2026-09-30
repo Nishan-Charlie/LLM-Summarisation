@@ -37,14 +37,22 @@ load_in_4bit = false
 batch_size = 8  # probe: fp16 b4 0.10-0.23, b8 0.46, nf4 b16 0.34 gen/s; b8 peak 7.2 GB
 
 [[models]]
-name = "llama3.1-8b"
+name = "llama3.2-1b"
 backend = "hf"
-model_id = "meta-llama/Llama-3.1-8B-Instruct"
-load_in_4bit = true
+model_id = "meta-llama/Llama-3.2-1B-Instruct"
+load_in_4bit = false
+batch_size = 16  # smallest rung of the Llama size ladder (1B / 3B / 8B), added 2026-09-29 before any score
 
-# 7B models use pre-quantised NF4 checkpoints of the same weights (bitsandbytes 4-bit),
+# 7-8B models use pre-quantised NF4 checkpoints of the same weights (bitsandbytes 4-bit),
 # a third of the download; they load as 4-bit from their own config, so load_in_4bit = false.
 # Weights live in D:/hf_cache: run these with HF_HUB_CACHE=D:/hf_cache.
+[[models]]
+name = "llama3.1-8b"
+backend = "hf"
+# meta-llama/Llama-3.1-8B-Instruct is gated for this account (403); same weights, pre-quantised
+model_id = "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
+load_in_4bit = false
+
 [[models]]
 name = "qwen2.5-7b"
 backend = "hf"

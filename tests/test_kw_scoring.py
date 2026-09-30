@@ -41,6 +41,30 @@ def coll(polarities, texts=None, level="pos75"):
     )
 
 
+class TestBuildSentiment:
+    """The instrument the scorer and the human check both use (spec §5)."""
+
+    @pytest.fixture
+    def fake_hf(self, monkeypatch):
+        import fairsum.kwsum.scoring as scoring
+
+        class FakeHF:
+            def __init__(self, model_name, device=None, neutral_band=0.8):
+                self.args = (model_name, device, neutral_band)
+
+        monkeypatch.setattr(scoring, "HFSentiment", FakeHF)
+        return scoring
+
+    def test_hybrid_when_a_neutral_model_is_configured(self, fake_hf):
+        s = fake_hf.build_sentiment("siebert", "cardiff", device="cpu")
+        assert isinstance(s, fake_hf.HybridSentiment)
+        assert s.gate.args == ("cardiff", "cpu", 0.8)
+        assert s.polarity.args == ("siebert", "cpu", 0.0)
+
+    def test_single_model_without_a_neutral_model(self, fake_hf):
+        assert fake_hf.build_sentiment("siebert").args == ("siebert", None, 0.8)
+
+
 class TestMatrixMetrics:
     def test_unsupported_and_support(self):
         entail = np.array([[0.9, 0.1, 0.2], [0.1, 0.3, 0.8]])  # 2 reviews x 3 props

@@ -15,3 +15,8 @@ Thumbs.db
 
 # Keyword study: regenerable review pools (hundreds of MB)
 data/kw/pools/
+
+# Secrets: API keys belong in environment variables, never in the repo
+apiKeys.txt
+*.key
+.env

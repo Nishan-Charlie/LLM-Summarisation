@@ -34,7 +34,7 @@ concern:
 | Bias measured | yes (proportions) | no | no | proportions **and** content coverage per group |
 | Imbalance | 50/50, 75/25 | natural | none | 50/50, 75/25, 87.5/12.5 in both directions |
 | Output | paragraph | key-point list | paragraph | paragraph |
-| Small models | fail (Llama-3-8B dropped) | 7B | 7B (Mistral became *less* faithful) | 3B–8B, compliance reported |
+| Small models | fail (Llama-3-8B dropped) | 7B | 7B (Mistral became *less* faithful) | 1B–8B, compliance reported |
 
 **Mechanism under test.** Salience-ranked keywords come mostly from the
 majority opinion. Keyword prompting may therefore improve faithfulness while
@@ -219,6 +219,39 @@ and the neutral rate by true polarity (a gate that neutralises one side more
 than the other would bias |Δp|). A human check of about 100 summary
 propositions is required before submission.
 
+**Human check protocol (registered 2026-09-29, before any score was computed).**
+
+- **Sample.** 25 summaries, 4 propositions each (100 items). Summaries are
+  drawn with seed 42 from scored test generations (status `ok`, at least 4
+  propositions), evenly over model × dataset and spread over conditions.
+  Propositions are drawn at random within each summary. The sample is drawn
+  after every generation run has finished.
+- **Blinding.** Annotators see the 8 reviews and the full summary with the
+  target sentences numbered. They never see the model, condition, level,
+  review ratings or scorer labels. The item-to-generation key is stored
+  outside the annotation folder.
+- **Labels per item.** *claim*: yes / no (no = heading, meta line, bare count
+  or fragment; the other two labels are then left blank). *sentiment*:
+  positive / negative / neutral / mixed, judged on the sentence alone.
+  *support*: supported (at least one review states or clearly implies it;
+  quantity words such as "many" or "most" are ignored) / contradicted (no
+  review supports it and at least one says the opposite) / unsupported (no
+  review supports or contradicts it). "Supported wins" matches the scorer.
+  A sentence about the balance of opinion ("received mixed reviews") is
+  judged against the 8 reviews as a whole. The exact wording is the guide in
+  `src/fairsum/kwsum/human_check.py`, shown to annotators in the sheet and the
+  reading pack.
+- **Reported.** For each label: scorer–human accuracy, Krippendorff's α
+  (nominal) and the confusion matrix. Sentiment is compared on claim = yes,
+  non-mixed items, and the mixed rate is reported. The human and scorer
+  unsupported rates are compared, with a bootstrap CI resampling summaries.
+  With a second annotator, human–human α is reported too.
+- **Interpretation, fixed in advance.** α ≥ 0.80 is good and 0.667–0.80 is
+  acceptable (Krippendorff's thresholds). Below 0.667 on sentiment, the
+  proportion metrics (|Δp|, MA) become exploratory. Below 0.667 on support, the
+  unsupported and contradiction rates become exploratory. A scorer that is
+  systematically stricter than humans is reported as giving upper bounds.
+
 **Count and meta handling (as run, final review C1/C2).**
 
 - A clause that states a count *and* an opinion ("Two reviewers reported
@@ -243,10 +276,25 @@ checks this; the NLI metrics above do not depend on it.
 
 | Model | Precision | Why |
 |---|---|---|
+| `meta-llama/Llama-3.2-1B-Instruct` | bf16 | smallest rung of the Llama size ladder (added, see below) |
 | `meta-llama/Llama-3.2-3B-Instruct` | fp16 if it fits at batch 4, else NF4 | the small end, where REFER is expected to fail |
 | `meta-llama/Llama-3.1-8B-Instruct` | NF4 | REFER's small model (direct replication point) |
 | `Qwen/Qwen2.5-7B-Instruct` | NF4 | second family |
 | `mistralai/Mistral-7B-Instruct-v0.3` | NF4 | the model SigExt found keywords hurt (H3 test) |
+
+**Amendment (2026-09-29, before any score was computed).**
+
+- **Scope: small open models only.** The registered comparisons use the five
+  local models above (1B–8B). API models are an optional reference arm, not
+  part of the registered hypotheses. The paper's claim is about small models
+  that can run on one consumer GPU, where REFER reports failure.
+- **Llama-3.1-8B** runs from `unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit`, a
+  pre-quantised NF4 copy of the same weights: the Meta repo is gated for this
+  account (403). This follows the §8 rule for gated models, with no change of
+  model.
+- **Llama-3.2-1B** is added so that one family gives a size ladder (1B / 3B /
+  8B). It was already cached locally and costs about two GPU hours.
+- The model set is now fixed. Every model is reported whatever its result.
 
 Decoding follows REFER: greedy (their temperature 0.001 is effectively greedy),
 `max_new_tokens=256`, `repetition_penalty=1.1`, and the chat template with the
@@ -321,7 +369,8 @@ append-only JSONL or CSV, so an interrupted run resumes where it stopped.
 
 ## 10. Out of scope this week
 
-Human evaluation; the reference-summary datasets (SPACE, Yelp, AmaSum); the
+Human evaluation of summary quality (the ~100-proposition check of the
+scorers in §5 is in scope); the reference-summary datasets (SPACE, Yelp, AmaSum); the
 CADEC and PsyTAR gold adverse-event datasets; multiple samples per input (the
 FairSum H1 link); PAKPA-style LLM aspect extraction. Each is listed as a
 journal-version extension.

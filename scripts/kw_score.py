@@ -16,8 +16,9 @@ from fairsum.kwsum.collections import read_collections
 from fairsum.kwsum.config import COLLECTIONS_PATH, KEYWORDS_PATH, load_config
 from fairsum.kwsum.manifest import check_or_write_manifest, input_identity
 from fairsum.kwsum.scoring import (
-    SCORER_VERSION, HFNLI, HFSentiment, HybridSentiment, score_generation, validate_sentiment,
+    SCORER_VERSION, HFNLI, score_generation, validate_sentiment,
 )
+from fairsum.kwsum.scoring import build_sentiment as _build_sentiment
 from fairsum.kwsum.store import append_jsonl, read_jsonl
 
 KEY = ("collection_id", "condition", "model")
@@ -25,10 +26,7 @@ KEY = ("collection_id", "condition", "model")
 
 def build_sentiment(cfg):
     """siebert for polarity; a 3-class neutral gate in front when configured."""
-    if cfg.neutral_model:
-        return HybridSentiment(HFSentiment(cfg.neutral_model),
-                               HFSentiment(cfg.sentiment_model, neutral_band=0.0))
-    return HFSentiment(cfg.sentiment_model)
+    return _build_sentiment(cfg.sentiment_model, cfg.neutral_model)
 
 
 def main() -> None:

@@ -16,7 +16,8 @@ from fairsum.kwsum.config import load_config
 from fairsum.kwsum.figures import fig_majority_amplification, fig_tradeoff
 from fairsum.kwsum.scoring import SCORER_VERSION
 from fairsum.kwsum.stats import (
-    compliance_table, condition_means, per_level_effects, run_tests, worst_case_fill,
+    compliance_table, condition_means, per_level_effects, polarity_only_view, run_tests,
+    worst_case_fill,
 )
 from fairsum.kwsum.store import read_jsonl
 
@@ -53,6 +54,9 @@ def main() -> None:
     tests = run_tests(scores)
     tests.to_csv(tables / "hypotheses.csv", index=False)
     per_level_effects(scores).to_csv(tables / "hypotheses_by_level_descriptive.csv", index=False)
+    # Robustness: the same registered tests with proportions from the polarity model alone.
+    run_tests(polarity_only_view(scores)).to_csv(
+        tables / "hypotheses_robustness_polarity_only.csv", index=False)
     manip = (scores.drop_duplicates("collection_id")
              .groupby("dataset")["negation_changed"].mean().rename("share_negation_changed"))
     manip.to_csv(tables / "negation_manipulation_rate.csv")
