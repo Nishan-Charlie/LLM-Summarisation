@@ -1,0 +1,10 @@
+model,condition,ok,refusal,truncated,total,scored_share
+llama3.2-3b,cot_refer,583,1,16,600,0.9983333333333333
+llama3.2-3b,direct,595,0,5,600,1.0
+llama3.2-3b,key_oracle,430,0,170,600,1.0
+llama3.2-3b,key_refer,502,0,98,600,1.0
+llama3.2-3b,kw_global,555,0,45,600,1.0
+llama3.2-3b,kw_strat,546,0,54,600,1.0
+llama3.2-3b,kw_strat_neg,547,0,53,600,1.0
+llama3.2-3b,refer,582,1,17,600,0.9983333333333333
+llama3.2-3b,refer_oracle,573,1,26,600,0.9983333333333333
