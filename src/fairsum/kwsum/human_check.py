@@ -332,19 +332,29 @@ def support_labels(entail: np.ndarray, contra: np.ndarray, threshold: float = 0.
 
 def scorer_labels(summaries: Sequence[SampledSummary], collections: Mapping[str, Collection],
                   nli, sentiment, threshold: float = 0.5) -> dict[str, dict]:
+    from fairsum.kwsum.scoring import deattributed_matrices
+
     out: dict[str, dict] = {}
     for s in summaries:
         texts = list(collections[s.collection_id].texts)
         sentences = list(s.sentences)
-        entail, contra = nli.matrices(texts, sentences)
+        entail, contra, entail_d, contra_d, _ = deattributed_matrices(nli, texts, sentences)
         support = support_labels(entail, contra, threshold)
+        support_d = support_labels(entail_d, contra_d, threshold)
         if hasattr(sentiment, "labels_both"):
             hybrid, polarity = sentiment.labels_both(sentences)
         else:
             hybrid, polarity = sentiment.labels(sentences), [None] * len(sentences)
-        for k, (sup, h, p) in enumerate(zip(support, hybrid, polarity), start=1):
-            out[f"{s.summary_id}-{k}"] = {"support": sup, "sentiment": h, "sentiment_polarity_only": p}
+        for k, (sup, sup_d, h, p) in enumerate(zip(support, support_d, hybrid, polarity), start=1):
+            out[f"{s.summary_id}-{k}"] = {"support": sup, "support_deattr": sup_d, "sentiment": h,
+                                          "sentiment_polarity_only": p}
     return out
+
+
+def binary_support(labels: Mapping[str, str | None]) -> dict[str, str | None]:
+    """Supported vs not: the distinction the unsupported rate is built on."""
+    return {i: None if v is None else "supported" if v == "supported" else "not_supported"
+            for i, v in labels.items()}
 
 
 def sentiment_view(human: Mapping[str, Mapping]) -> dict[str, str]:

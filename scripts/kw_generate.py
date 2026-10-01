@@ -65,6 +65,9 @@ def main() -> None:
     ap.add_argument("--conditions", default="", help="comma-separated; default the config's")
     ap.add_argument("--limit-per-cell", type=int, default=None)
     ap.add_argument("--chunk", type=int, default=64)
+    ap.add_argument("--batch-size", type=int, default=None,
+                    help="override the configured batch size (the queue retries with 4, then 2, "
+                         "after a GPU failure on long prompts)")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -91,7 +94,7 @@ def main() -> None:
         return
 
     decoding = DecodingConfig(cfg.max_new_tokens, cfg.repetition_penalty,
-                              spec.batch_size or cfg.batch_size)
+                              args.batch_size or spec.batch_size or cfg.batch_size)
     backend = build_backend(spec, decoding)
     finished, started = 0, time.time()
     for start in range(0, len(todo), args.chunk):

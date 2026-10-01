@@ -1,1 +1,14 @@
 2026-09-29T19:42:23  waiting for PID 12152
+2026-09-30T08:11:06  start score_after_wait
+2026-09-30T08:55:50  end score_after_wait (exit 0)
+2026-09-30T08:55:50  start run_qwen2.5-7b
+2026-09-30T13:37:04  end run_qwen2.5-7b (exit 1)
+2026-09-30T13:37:04  start score_qwen2.5-7b
+2026-09-30T13:52:40  end score_qwen2.5-7b (exit 0)
+2026-09-30T13:52:40  start run_mistral-7b
+2026-09-30T22:07:30  end run_mistral-7b (exit 1)
+2026-09-30T22:07:30  start score_mistral-7b
+2026-10-01T00:02:18  end score_mistral-7b (exit 0)
+2026-10-01T00:02:18  start analyze
+2026-10-01T00:02:25  end analyze (exit 0)
+2026-10-01T00:02:25  queue finished

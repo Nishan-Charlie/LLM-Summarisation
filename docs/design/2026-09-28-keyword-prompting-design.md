@@ -199,6 +199,34 @@ metrics come from this one matrix.
 | Manipulation check | keyword uptake | share of prompt keywords that appear in the summary (lemmatised, fuzzy) | |
 | Quality | length, compliance | words; status ∈ {ok, truncated, empty, no_summary, refusal} | reported beside everything |
 
+**Amendment (2026-09-30): attribution-robust faithfulness.** Added after the
+3B scores were seen. It was triggered by a check on the instrument itself, not
+by any hypothesis outcome.
+
+- **Finding.** The unsupported rate was 0.72–0.80 in all nine conditions.
+  Wider premises did not change it: windows of 3 reviews gave 0.84 and all 8
+  reviews 0.98, on 44 statements. Removing the reviewer frame turned 5 of 8
+  unsupported statements into supported ones. DeBERTa-MNLI rarely entails
+  "Some reviewers found X" from a first-person review. Conditions differ in how
+  often they attribute (45–52% of statements), so the comparisons are affected,
+  not only the level.
+- **Added (scorer v4).** Attribution-robust variants of the NLI metrics:
+  unsupported rate, support score, contradiction rate, coverage recalls and
+  gap. Each statement with a known reviewer frame is also scored in rewritten
+  form (`src/fairsum/kwsum/attribution.py`). A "that" clause is kept on its
+  own; otherwise "the reviewers" become "I", as in the reviews. Per (review,
+  statement) pair the larger entailment and contradiction is used. The rewrite
+  can therefore add support but never remove it.
+- **Unchanged.** The registered metrics are still computed and reported. Every
+  registered test is also run on the attribution-robust view
+  (`hypotheses_robustness_deattributed.csv`).
+- **Which one is primary (rule fixed before any human label).** In the human
+  check, the attribution-robust score becomes the primary faithfulness score
+  if its supported-vs-not agreement with the human labels beats the registered
+  score's by at least 0.05 (Krippendorff's α). With two annotators, agreement
+  is computed on the items they agree on. Otherwise the registered score stays
+  primary. Both are reported either way.
+
 **Sentiment classifier (as run).** A hybrid instrument, replacing the
 original 3-class plan after the pilot:
 

@@ -4,6 +4,8 @@ Model calls are replaced by fixed matrices and fakes, so every number here can
 be checked by hand.
 """
 
+import re
+
 import numpy as np
 import pytest
 
@@ -12,6 +14,7 @@ from fairsum.kwsum.scoring import (
     combine_labels,
     count_error,
     coverage_recalls,
+    deattributed_matrices,
     invented_numbers,
     keyword_uptake,
     labels_from_probs,
@@ -252,6 +255,47 @@ def test_rows_carry_the_polarity_only_robustness_variant():
     assert row["summary_neg_share_polarity_only"] == pytest.approx(0.5)
     assert row["delta_p_polarity_only"] == pytest.approx(0.25)
     assert row["majority_amplification_polarity_only"] == pytest.approx(-0.25)
+
+
+class FrameSensitiveNLI:
+    """Entails only statements without a reviewer frame, as DeBERTa-MNLI does in practice."""
+
+    def __init__(self, entail_frames=False):
+        self.entail_frames = entail_frames
+
+    def matrices(self, premises, hypotheses):
+        framed = [bool(re.search(r"\b(reviewers?|users?)\b", h, re.IGNORECASE)) for h in hypotheses]
+        e = np.array([[0.9 if f == self.entail_frames else 0.1 for f in framed] for _ in premises])
+        return e, np.zeros_like(e)
+
+
+ATTRIBUTED = "Some reviewers found the sleep much better. The price is fair for what you get."
+
+
+def test_deattributed_faithfulness_is_scored_beside_the_registered_one():
+    row = score_generation(gen(ATTRIBUTED), coll(POS75, TEXTS), KW, FrameSensitiveNLI(), FakeSentiment())
+    assert row["n_props"] == 2 and row["n_deattributed"] == 1
+    assert row["unsupported_rate"] == pytest.approx(0.5)          # as written, the frame sinks it
+    assert row["unsupported_rate_deattr"] == pytest.approx(0.0)   # "I found the sleep much better"
+    assert row["support_score_deattr"] == pytest.approx(0.9)
+    assert row["contradiction_rate_deattr"] == pytest.approx(0.0)
+    assert row["recall_minority_deattr"] == pytest.approx(1.0)
+    assert row["coverage_gap_deattr"] == pytest.approx(0.0)
+
+
+def test_deattributed_matrices_take_the_better_wording_per_review():
+    e, c, e_d, c_d, n_changed = deattributed_matrices(
+        FrameSensitiveNLI(), ["r1", "r2"], ["Some reviewers found it strong.", "It is cheap."])
+    assert n_changed == 1 and e.shape == e_d.shape == (2, 2)
+    assert e[0, 0] == pytest.approx(0.1) and e_d[0, 0] == pytest.approx(0.9)
+    assert e_d[0, 1] == pytest.approx(0.9)  # an unframed statement is scored once, unchanged
+
+
+def test_deattribution_never_lowers_support():
+    # An NLI that prefers the framed wording: the rewrite must not make things worse.
+    row = score_generation(gen(ATTRIBUTED), coll(POS75, TEXTS), KW, FrameSensitiveNLI(entail_frames=True),
+                           FakeSentiment())
+    assert row["unsupported_rate_deattr"] == pytest.approx(row["unsupported_rate"])
 
 
 def test_validate_sentiment_reports_accuracy():

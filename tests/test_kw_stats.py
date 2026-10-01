@@ -14,6 +14,7 @@ from fairsum.kwsum.stats import (
     holm,
     level_interaction_p,
     per_level_effects,
+    deattributed_view,
     polarity_only_view,
     run_tests,
     wilcoxon_p,
@@ -112,6 +113,17 @@ def test_the_robustness_view_swaps_in_the_polarity_only_metrics():
                       "majority_amplification": [0.0], "majority_amplification_polarity_only": [-0.2]})
     r = polarity_only_view(f)
     assert r.loc[0, "delta_p"] == 0.3 and r.loc[0, "majority_amplification"] == -0.2
+
+
+def test_the_deattributed_view_swaps_in_the_attribution_robust_nli_metrics():
+    f = pd.DataFrame({"unsupported_rate": [0.8], "unsupported_rate_deattr": [0.5],
+                      "contradiction_rate": [0.1], "contradiction_rate_deattr": [0.2],
+                      "coverage_gap": [0.3], "coverage_gap_deattr": [0.1],
+                      "delta_p": [0.4]})
+    r = deattributed_view(f)
+    assert r.loc[0, "unsupported_rate"] == 0.5 and r.loc[0, "contradiction_rate"] == 0.2
+    assert r.loc[0, "coverage_gap"] == 0.1
+    assert r.loc[0, "delta_p"] == 0.4  # proportion metrics do not use NLI
 
 
 def test_duplicate_rows_are_rejected_not_multiplied():

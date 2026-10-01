@@ -15,6 +15,18 @@ Thumbs.db
 
 # Keyword study: regenerable review pools (hundreds of MB)
 data/kw/pools/
+# Extra datasets: licences forbid redistribution; rebuild with scripts/kw_download_external.py
+data/external/
+
+# LaTeX build files for the paper (main.pdf and generated/ are kept)
+paper/*.aux
+paper/*.log
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.out
+paper/*.blg
+paper/*.spl
+paper/*.synctex.gz
 
 # Secrets: API keys belong in environment variables, never in the repo
 apiKeys.txt

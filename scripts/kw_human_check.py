@@ -26,7 +26,7 @@ import pandas as pd
 from fairsum.kwsum.collections import read_collections
 from fairsum.kwsum.config import COLLECTIONS_PATH, REPO_ROOT, load_config
 from fairsum.kwsum.human_check import (
-    HumanCheckSheetError, compare, item_ids, read_key, read_sheet, sample_summaries,
+    HumanCheckSheetError, binary_support, compare, item_ids, read_key, read_sheet, sample_summaries,
     scorer_labels, sentiment_view, support_view, unsupported_rate_gap, write_key,
     write_reading_pack, write_sheet,
 )
@@ -40,6 +40,15 @@ def verdict(alpha: float) -> str:
     if alpha != alpha:  # NaN
         return "undefined"
     return "good" if alpha >= 0.80 else "acceptable" if alpha >= 0.667 else "EXPLORATORY ONLY"
+
+
+def primary_faithfulness(alpha_as_written: float, alpha_deattr: float, margin: float = 0.05) -> str:
+    """Registered 30 Sep 2026, before any human label: the de-attributed score becomes primary
+    only if its supported-vs-not agreement with humans beats the registered score's by `margin`."""
+    if alpha_deattr == alpha_deattr and alpha_as_written == alpha_as_written \
+            and alpha_deattr - alpha_as_written >= margin:
+        return "de-attributed"
+    return "as written (registered)"
 
 
 def make(args, cfg) -> None:
@@ -90,6 +99,7 @@ def check(args, cfg) -> int:
     scorer_sent = {i: s["sentiment"] for i, s in scorer.items()}
     scorer_polar = {i: s["sentiment_polarity_only"] for i, s in scorer.items()}
     scorer_support = {i: s["support"] for i, s in scorer.items()}
+    scorer_support_d = {i: s["support_deattr"] for i, s in scorer.items()}
 
     rows, report = [], {}
     for name, human in humans.items():
@@ -99,24 +109,48 @@ def check(args, cfg) -> int:
         sent = compare(sentiment_view(human), scorer_sent)
         polar_items = {i: v for i, v in sentiment_view(human).items() if v != "neutral"}
         polar = compare(polar_items, scorer_polar)
-        sup = compare(support_view(human), scorer_support)
-        gap = unsupported_rate_gap(support_view(human), scorer_support)
+        human_sup = support_view(human)
+        sup = compare(human_sup, scorer_support)
+        sup_d = compare(human_sup, scorer_support_d)
+        bin_reg = compare(binary_support(human_sup), binary_support(scorer_support))
+        bin_d = compare(binary_support(human_sup), binary_support(scorer_support_d))
         print(f"\n=== {name} vs scorer ===")
         print(f"claims: {claims} of {n} ({n - claims} kept by the splitter but not claims)")
         print(f"mixed sentiment: {mixed} of {claims} claims (left out of the sentiment comparison)")
         for label, res in (("sentiment (hybrid, 3 classes)", sent),
                            ("sentiment (polarity model, human-polar items)", polar),
-                           ("support (3 classes)", sup)):
+                           ("support as written (3 classes)", sup),
+                           ("support de-attributed (3 classes)", sup_d),
+                           ("support as written (supported vs not)", bin_reg),
+                           ("support de-attributed (supported vs not)", bin_d)):
             print(f"{label}: n={res.n} accuracy={res.accuracy:.3f} alpha={res.alpha:.3f} "
                   f"-> {verdict(res.alpha)}")
             print("  confusion (human, scorer): "
                   + ", ".join(f"{h}->{s}: {c}" for (h, s), c in sorted(res.confusion.items())))
             rows.append({"comparison": f"{name} vs scorer", "label": label, "n": res.n,
                          "accuracy": res.accuracy, "alpha": res.alpha, "verdict": verdict(res.alpha)})
-        print(f"unsupported rate: human {gap['human_rate']:.3f}, scorer {gap['scorer_rate']:.3f}, "
-              f"scorer - human = {gap['diff']:+.3f} [{gap['ci_lo']:+.3f}, {gap['ci_hi']:+.3f}] "
-              f"({gap['n_summaries']} summaries)")
-        report[name] = {"n": n, "claims": claims, "mixed": mixed, "unsupported_gap": gap}
+        gaps = {}
+        for label, scorer_map in (("as written", scorer_support), ("de-attributed", scorer_support_d)):
+            gap = gaps[label] = unsupported_rate_gap(human_sup, scorer_map)
+            print(f"unsupported rate ({label}): human {gap['human_rate']:.3f}, scorer "
+                  f"{gap['scorer_rate']:.3f}, scorer - human = {gap['diff']:+.3f} "
+                  f"[{gap['ci_lo']:+.3f}, {gap['ci_hi']:+.3f}] ({gap['n_summaries']} summaries)")
+        report[name] = {"n": n, "claims": claims, "mixed": mixed, "unsupported_gap": gaps,
+                        "alpha_binary_as_written": bin_reg.alpha, "alpha_binary_deattr": bin_d.alpha}
+
+    # The registered rule is applied once: on the items both annotators agree on, or on the
+    # only annotator's labels.
+    views = [support_view(h) for h in humans.values()]
+    basis = views[0] if len(views) == 1 else {
+        i: v for i, v in views[0].items() if i in views[1] and views[1][i] == v}
+    a_reg = compare(binary_support(basis), binary_support(scorer_support)).alpha
+    a_d = compare(binary_support(basis), binary_support(scorer_support_d)).alpha
+    primary = primary_faithfulness(a_reg, a_d)
+    print(f"\nprimary faithfulness score by the registered rule ({len(basis)} items"
+          f"{', annotators agree' if len(views) > 1 else ''}): {primary} "
+          f"(alpha as written {a_reg:.3f}, de-attributed {a_d:.3f})")
+    report["primary_faithfulness"] = {"choice": primary, "n_items": len(basis),
+                                      "alpha_as_written": a_reg, "alpha_deattr": a_d}
 
     names = list(humans)
     if len(names) >= 2:

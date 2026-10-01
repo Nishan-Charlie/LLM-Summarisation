@@ -226,6 +226,22 @@ def polarity_only_view(scores: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def deattributed_view(scores: pd.DataFrame) -> pd.DataFrame:
+    """Scores with the NLI metrics taken from the attribution-robust variant.
+
+    DeBERTa-MNLI rarely entails "Some reviewers found X" from a first-person
+    review, and prompts differ in how often their outputs attribute, so every
+    faithfulness and coverage result is also reported on this view.
+    """
+    out = scores.copy()
+    for metric in ("unsupported_rate", "support_score", "contradiction_rate",
+                   "recall_majority", "recall_minority", "coverage_gap"):
+        alt = f"{metric}_deattr"
+        if alt in out.columns:
+            out[metric] = out[alt]
+    return out
+
+
 def worst_case_fill(scores: pd.DataFrame) -> pd.DataFrame:
     """Sensitivity analysis (spec §5): score every failure as badly as possible.
 

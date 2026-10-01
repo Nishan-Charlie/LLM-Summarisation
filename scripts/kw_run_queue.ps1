@@ -1,7 +1,9 @@
 # Unattended run queue for the keyword study: generate -> score for each model, then analyse.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\kw_run_queue.ps1 -Models qwen2.5-7b,mistral-7b -WaitPid 12152
-#   (-WaitPid takes several PIDs, e.g. an earlier queue and a weight download: -WaitPid 74440,46168)
+#   Several PIDs (e.g. an earlier queue and a weight download) need -Command, because -File
+#   passes "74440,46168" as one string:
+#   powershell -ExecutionPolicy Bypass -Command "& '<repo>\scripts\kw_run_queue.ps1' -Models llama3.1-8b -WaitPid 74440,46168"
 #
 # Every step runs offline (HF_HUB_OFFLINE=1) from local caches, so a flaky network cannot
 # stall an overnight run. 7B weights live in D:\hf_cache and are selected per step through
@@ -22,7 +24,8 @@ $python = "C:\Users\nisha\miniconda3\python.exe"
 $logs = Join-Path $root "results\kw"
 $queueLog = Join-Path $logs "queue.log"
 
-function Note($msg) { "$(Get-Date -Format s)  $msg" | Tee-Object -FilePath $queueLog -Append }
+# Out-Host keeps log lines out of the pipeline, so Step can return only its exit code.
+function Note($msg) { "$(Get-Date -Format s)  $msg" | Tee-Object -FilePath $queueLog -Append | Out-Host }
 
 function Step($name, [string[]]$pyArgs, [bool]$bigCache) {
     $env:HF_HUB_OFFLINE = "1"
@@ -32,6 +35,18 @@ function Step($name, [string[]]$pyArgs, [bool]$bigCache) {
         -RedirectStandardOutput (Join-Path $logs "$name.log") -RedirectStandardError (Join-Path $logs "$name.log.err") `
         -WindowStyle Hidden -PassThru -Wait
     Note "end $name (exit $($p.ExitCode))"
+    return $p.ExitCode
+}
+
+# Long prompts late in a shortest-first run can exhaust the 8 GB card (Qwen died on
+# CUBLAS_STATUS_EXECUTION_FAILED at 43%). Generation resumes, so retry with smaller batches.
+function Generate($m, [bool]$bigCache) {
+    $base = @("scripts/kw_generate.py", "--config", $Config, "--model", $m, "--split", "test")
+    $code = Step "run_$m" $base $bigCache
+    foreach ($bs in 4, 2) {
+        if ($code -eq 0) { return }
+        $code = Step "run_$m`_bs$bs" ($base + @("--batch-size", "$bs")) $bigCache
+    }
 }
 
 foreach ($waitFor in $WaitPid) {
@@ -40,10 +55,10 @@ foreach ($waitFor in $WaitPid) {
 }
 
 # Named after this queue's first model, so a chained queue keeps the earlier queue's log.
-Step "score_before_$($Models[0])" @("scripts/kw_score.py", "--config", $Config) $false
+[void](Step "score_before_$($Models[0])" @("scripts/kw_score.py", "--config", $Config) $false)
 foreach ($m in $Models) {
-    Step "run_$m" @("scripts/kw_generate.py", "--config", $Config, "--model", $m, "--split", "test") ($m -notin $DefaultCacheModels)
-    Step "score_$m" @("scripts/kw_score.py", "--config", $Config) $false
+    Generate $m ($m -notin $DefaultCacheModels)
+    [void](Step "score_$m" @("scripts/kw_score.py", "--config", $Config) $false)
 }
-Step "analyze" @("scripts/kw_analyze.py", "--config", $Config) $false
+[void](Step "analyze" @("scripts/kw_analyze.py", "--config", $Config) $false)
 Note "queue finished"

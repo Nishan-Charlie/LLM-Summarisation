@@ -14,6 +14,7 @@ from typing import Mapping, Protocol, Sequence
 
 import numpy as np
 
+from fairsum.kwsum.attribution import deattribute
 from fairsum.kwsum.collections import Collection
 from fairsum.kwsum.compliance import SCORED_STATUSES, classify_output
 from fairsum.kwsum.prompts import KEYWORD_BASE
@@ -25,7 +26,8 @@ from fairsum.metrics import MetricStatus, fairsum_metrics
 #: v2: count-statement handling, summary-header trimming, truncated tails,
 #: status recomputed at scoring time, hybrid sentiment.
 #: v3: polarity-only robustness variants of the proportion metrics.
-SCORER_VERSION = "3"
+#: v4: attribution-robust (de-attributed) faithfulness and coverage beside the registered ones.
+SCORER_VERSION = "4"
 
 ID_FIELDS = ("collection_id", "dataset", "split", "level", "condition", "model")
 METRIC_FIELDS = (
@@ -42,7 +44,12 @@ METRIC_FIELDS = (
     # so every proportion result is also reported without it.
     "summary_neg_share_polarity_only", "delta_p_polarity_only",
     "majority_amplification_polarity_only",
+    # Robustness: NLI metrics with each statement also scored without its reviewer frame
+    # ("Some reviewers found X" -> "I found X"); a statement counts if either form is entailed.
+    "n_deattributed", "unsupported_rate_deattr", "support_score_deattr", "contradiction_rate_deattr",
+    "recall_majority_deattr", "recall_minority_deattr", "coverage_gap_deattr",
 )
+_DEATTR_COVERAGE = ("recall_majority", "recall_minority", "coverage_gap")
 _NUMBER = re.compile(r"\b\d+(?:\.\d+)?\b")
 _WORD = re.compile(r"[a-z0-9]+")
 
@@ -148,6 +155,27 @@ def _negation_changed(keywords: Mapping) -> bool:
                for g in ("positive", "negative"))
 
 
+def deattributed_matrices(nli: NLIModel, premises: Sequence[str], statements: Sequence[str]):
+    """(entail, contra) for the statements as written, the same with each framed statement
+    also scored without its reviewer frame, and the number of statements rewritten.
+
+    One NLI call covers both wordings. Either wording may carry the support, so per
+    (review, statement) pair the attribution-robust matrices take the larger value:
+    the rewrite can add support but never remove it.
+    """
+    statements = list(statements)
+    plain = [deattribute(s) for s in statements]
+    changed = [j for j, (s, p) in enumerate(zip(statements, plain)) if s != p]
+    entail_all, contra_all = nli.matrices(list(premises), statements + [plain[j] for j in changed])
+    n = len(statements)
+    entail, contra = entail_all[:, :n], contra_all[:, :n]
+    entail_d, contra_d = entail.copy(), contra.copy()
+    for k, j in enumerate(changed):
+        entail_d[:, j] = np.maximum(entail[:, j], entail_all[:, n + k])
+        contra_d[:, j] = np.maximum(contra[:, j], contra_all[:, n + k])
+    return entail, contra, entail_d, contra_d, len(changed)
+
+
 def score_generation(gen: Mapping, collection: Collection, keywords: Mapping,
                      nli: NLIModel, sentiment: SentimentModel, threshold: float = 0.5,
                      max_new_tokens: int | None = None) -> dict:
@@ -183,9 +211,14 @@ def score_generation(gen: Mapping, collection: Collection, keywords: Mapping,
     if not props:
         return row
 
-    entail, contra = nli.matrices(list(collection.texts), props)
+    entail, contra, entail_d, contra_d, n_changed = deattributed_matrices(
+        nli, list(collection.texts), props)
     row.update(matrix_metrics(entail, contra, threshold))
     row.update(coverage_recalls(entail, collection.polarities, collection.majority, threshold))
+    row["n_deattributed"] = n_changed
+    row.update({f"{k}_deattr": v for k, v in matrix_metrics(entail_d, contra_d, threshold).items()})
+    cov_d = coverage_recalls(entail_d, collection.polarities, collection.majority, threshold)
+    row.update({f"{k}_deattr": cov_d[k] for k in _DEATTR_COVERAGE})
 
     if hasattr(sentiment, "labels_both"):
         labels, polarity_labels = sentiment.labels_both(props)

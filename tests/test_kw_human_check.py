@@ -14,6 +14,8 @@ from fairsum.kwsum.collections import Collection
 from fairsum.kwsum.human_check import (
     HumanCheckSheetError,
     SHEET_COLUMNS,
+    SampledSummary,
+    binary_support,
     compare,
     item_ids,
     read_key,
@@ -205,12 +207,35 @@ class TestScorerLabels:
 
         out = scorer_labels(picked, {picked[0].collection_id: coll(picked[0].collection_id)},
                             NLI(), Sentiment())
-        assert out["S01-1"] == {"support": "supported", "sentiment": "positive",
-                                "sentiment_polarity_only": "positive"}
+        assert out["S01-1"] == {"support": "supported", "support_deattr": "supported",
+                                "sentiment": "positive", "sentiment_polarity_only": "positive"}
         assert out["S01-2"]["support"] == "contradicted"
         assert out["S01-2"]["sentiment"] == "neutral"
         assert out["S01-2"]["sentiment_polarity_only"] == "negative"
         assert out["S01-3"]["support"] == "unsupported"
+
+
+    def test_scorer_labels_include_the_attribution_robust_support(self):
+        s = SampledSummary("S01", "c1", "m", "direct", "drugs", "pos75", "raw",
+                           ("Some reviewers found the scent too strong.", "The price is fair."))
+
+        class FrameSensitiveNLI:  # entails only statements without a reviewer frame
+            def matrices(self, premises, hypotheses):
+                e = np.array([[0.1 if "reviewers" in h else 0.9 for h in hypotheses] for _ in premises])
+                return e, np.zeros_like(e)
+
+        class Sentiment:
+            def labels_both(self, texts):
+                return ["negative", "neutral"], ["negative", "positive"]
+
+        out = scorer_labels([s], {"c1": coll("c1")}, FrameSensitiveNLI(), Sentiment())
+        assert out["S01-1"]["support"] == "unsupported"
+        assert out["S01-1"]["support_deattr"] == "supported"   # "I found the scent too strong."
+        assert out["S01-2"]["support"] == out["S01-2"]["support_deattr"] == "supported"
+
+    def test_binary_view_collapses_contradicted_into_not_supported(self):
+        assert binary_support({"1": "supported", "2": "contradicted", "3": "unsupported", "4": None}) == {
+            "1": "supported", "2": "not_supported", "3": "not_supported", "4": None}
 
 
 class TestAgreement:

@@ -16,15 +16,17 @@ from fairsum.kwsum.config import load_config
 from fairsum.kwsum.figures import fig_majority_amplification, fig_tradeoff
 from fairsum.kwsum.scoring import SCORER_VERSION
 from fairsum.kwsum.stats import (
-    compliance_table, condition_means, per_level_effects, polarity_only_view, run_tests,
-    worst_case_fill,
+    compliance_table, condition_means, deattributed_view, per_level_effects, polarity_only_view,
+    run_tests, worst_case_fill,
 )
 from fairsum.kwsum.store import read_jsonl
 
 PRIMARY = ["unsupported_rate", "contradiction_rate", "count_abs_error", "delta_p",
            "majority_amplification", "coverage_gap"]
 SECONDARY = ["support_score", "recall_minority", "attribution_share_minority", "bur", "uer",
-             "keyword_uptake", "keyword_uptake_minority", "invented_numbers", "n_words"]
+             "keyword_uptake", "keyword_uptake_minority", "invented_numbers", "n_words",
+             "unsupported_rate_deattr", "contradiction_rate_deattr", "coverage_gap_deattr",
+             "recall_minority_deattr", "n_deattributed", "n_props"]
 
 
 def main() -> None:
@@ -57,6 +59,9 @@ def main() -> None:
     # Robustness: the same registered tests with proportions from the polarity model alone.
     run_tests(polarity_only_view(scores)).to_csv(
         tables / "hypotheses_robustness_polarity_only.csv", index=False)
+    # Robustness: the same tests with NLI metrics from statements without their reviewer frame.
+    run_tests(deattributed_view(scores)).to_csv(
+        tables / "hypotheses_robustness_deattributed.csv", index=False)
     manip = (scores.drop_duplicates("collection_id")
              .groupby("dataset")["negation_changed"].mean().rename("share_negation_changed"))
     manip.to_csv(tables / "negation_manipulation_rate.csv")
