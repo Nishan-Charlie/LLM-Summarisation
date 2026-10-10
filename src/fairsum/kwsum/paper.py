@@ -59,6 +59,18 @@ def macro_file(values: dict[str, str]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def sign_cells(df: pd.DataFrame, by: list[str], col: str) -> tuple[int, int, float]:
+    """Means of `col` per group: (groups with a negative mean, groups with any value, largest mean)."""
+    means = df.groupby(by)[col].mean().dropna()
+    return int((means < 0).sum()), len(means), float(means.max())
+
+
+def supported_cells(tests: pd.DataFrame, hypothesis: str) -> tuple[int, int]:
+    """(model x dataset cells where `hypothesis` is supported, cells tested)."""
+    t = tests[tests["hypothesis"] == hypothesis]
+    return int(t["supported"].astype(bool).sum()), len(t)
+
+
 def _cell(value) -> str:
     text = "--" if _is_missing(value) else str(value)
     return text if ("$" in text or "\\" in text) else tex_escape(text)
@@ -80,4 +92,29 @@ def latex_table(df: pd.DataFrame, caption: str, label: str, align: str | None = 
     if note:
         parts += [r"\par\smallskip", rf"\parbox{{\linewidth}}{{\footnotesize {note}}}"]
     parts.append(rf"\end{{{env}}}")
+    return "\n".join(parts) + "\n"
+
+
+def panel_table(panels: list[tuple[str, pd.DataFrame]], caption: str, label: str, align: str | None = None,
+                note: str | None = None, size: str = r"\small", colsep: str | None = None) -> str:
+    """One booktabs table of several blocks that share a header, each block under an italic title row."""
+    columns = list(panels[0][1].columns)
+    for title, df in panels:
+        if list(df.columns) != columns:
+            raise ValueError(f"panel {title!r} has columns {list(df.columns)}, expected {columns}")
+    width = len(columns)
+    body = []
+    for i, (title, df) in enumerate(panels):
+        if i:
+            body.append(r"\midrule")
+        body.append(rf"\multicolumn{{{width}}}{{l}}{{\textit{{{title}}}}} \\")
+        body += [" & ".join(_cell(v) for v in row) + r" \\" for row in df.itertuples(index=False)]
+    spacing = [rf"\setlength{{\tabcolsep}}{{{colsep}}}"] if colsep else []
+    parts = [r"\begin{table}[htbp]", r"\centering", size, *spacing, rf"\caption{{{caption}}}",
+             rf"\label{{{label}}}", rf"\begin{{tabular}}{{{align or 'l' * width}}}", r"\toprule",
+             " & ".join(_cell(c) for c in columns) + r" \\", r"\midrule", *body, r"\bottomrule",
+             r"\end{tabular}"]
+    if note:
+        parts += [r"\par\smallskip", rf"\parbox{{\linewidth}}{{\footnotesize {note}}}"]
+    parts.append(r"\end{table}")
     return "\n".join(parts) + "\n"

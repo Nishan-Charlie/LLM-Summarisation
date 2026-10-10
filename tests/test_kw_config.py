@@ -52,3 +52,21 @@ def test_unknown_level_is_rejected(tmp_path):
 def test_unknown_backend_is_rejected(tmp_path):
     with pytest.raises(ValueError, match="unknown backend"):
         load_config(_variant(tmp_path, 'backend = "hf"', 'backend = "vllm"'))
+
+
+CONTROLS_CONFIG = REPO_ROOT / "configs" / "kw_controls.toml"
+
+
+def test_controls_config_is_week1_with_only_the_two_controls():
+    week1, controls = load_config(CONFIG), load_config(CONTROLS_CONFIG)
+    assert controls.run_id == "controls" and controls.conditions == ("direct_len", "counts_neutral", "counts_reflect")
+    assert controls.length_reference_run == "week1"
+    assert controls.models == week1.models
+    assert (controls.max_new_tokens, controls.repetition_penalty, controls.nli_model,
+            controls.sentiment_model, controls.neutral_model) == (
+            week1.max_new_tokens, week1.repetition_penalty, week1.nli_model,
+            week1.sentiment_model, week1.neutral_model)
+
+
+def test_week1_has_no_length_reference():
+    assert load_config(CONFIG).length_reference_run is None

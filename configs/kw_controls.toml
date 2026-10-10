@@ -1,0 +1,85 @@
+# Amendment 9 controls (docs/superpowers/specs/2026-10-02-kw-amendment-9.md): the week-1 run
+# with only the two control prompts. Same collections, keywords, decoding, scorer and models;
+# results go to results/kw/controls/ so the registered week-1 tables stay as they are.
+# Spec: docs/superpowers/specs/2026-09-28-keyword-prompting-design.md
+run_id = "controls"
+seed = 42
+
+[collections]
+datasets = ["amazon", "drugs"]
+levels = ["bal", "pos75", "pos88", "neg75", "neg88"]
+n_test = 60
+n_dev = 10
+dev_fraction = 0.2
+
+[keywords]
+k = 10
+diversity = 0.5
+embedder = "sentence-transformers/all-MiniLM-L6-v2"
+
+[generation]
+conditions = ["direct_len", "counts_neutral", "counts_reflect"]  # counts_reflect: amendment 10
+# direct_len matches the length of this run's kw_strat summary on the same collection
+length_reference_run = "week1"
+max_new_tokens = 256
+repetition_penalty = 1.1
+batch_size = 8
+
+[scoring]
+nli_model = "microsoft/deberta-large-mnli"
+# cardiffnlp/twitter-roberta-base-sentiment-latest failed the 0.90 gate (0.76; drugs 0.69), spec §5 rule
+sentiment_model = "siebert/sentiment-roberta-large-english"
+# siebert is ~0.99 confident on neutral facts, so a 3-class model decides neutral vs opinion first
+neutral_model = "cardiffnlp/twitter-roberta-base-sentiment-latest"
+threshold = 0.5
+
+[[models]]
+name = "llama3.2-3b"
+backend = "hf"
+model_id = "meta-llama/Llama-3.2-3B-Instruct"
+load_in_4bit = false
+batch_size = 8  # probe: fp16 b4 0.10-0.23, b8 0.46, nf4 b16 0.34 gen/s; b8 peak 7.2 GB
+
+[[models]]
+name = "llama3.2-1b"
+backend = "hf"
+model_id = "meta-llama/Llama-3.2-1B-Instruct"
+load_in_4bit = false
+batch_size = 16  # smallest rung of the Llama size ladder (1B / 3B / 8B), added 2026-09-29 before any score
+
+# 7-8B models use pre-quantised NF4 checkpoints of the same weights (bitsandbytes 4-bit),
+# a third of the download; they load as 4-bit from their own config, so load_in_4bit = false.
+# Weights live in D:/hf_cache: run these with HF_HUB_CACHE=D:/hf_cache.
+[[models]]
+name = "llama3.1-8b"
+backend = "hf"
+# meta-llama/Llama-3.1-8B-Instruct is gated for this account (403); same weights, pre-quantised
+model_id = "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit"
+load_in_4bit = false
+
+[[models]]
+name = "qwen2.5-7b"
+backend = "hf"
+model_id = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit"
+load_in_4bit = false
+
+[[models]]
+name = "mistral-7b"
+backend = "hf"
+model_id = "unsloth/mistral-7b-instruct-v0.3-bnb-4bit"
+load_in_4bit = false
+
+# API models: uncomment once the key is exported as an environment variable.
+# [[models]]
+# name = "gpt-4o-mini"
+# backend = "openai"
+# model_id = "gpt-4o-mini-2024-07-18"
+# api_key_env = "OPENAI_API_KEY"
+# max_workers = 8
+#
+# [[models]]
+# name = "claude-opus-5"
+# backend = "anthropic"
+# model_id = "claude-opus-5"
+# api_key_env = "ANTHROPIC_API_KEY"
+# max_workers = 4

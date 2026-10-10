@@ -163,8 +163,44 @@ def read_key(path: str | Path) -> list[SampledSummary]:
     return [SampledSummary(**{**s, "sentences": tuple(s["sentences"])}) for s in data["summaries"]]
 
 
-def write_sheet(summaries: Sequence[SampledSummary], path: str | Path) -> None:
-    """A blank labelling sheet with drop-down lists, plus the guide on a second tab."""
+def web_items(summaries: Sequence[SampledSummary], collections: Mapping[str, Collection]) -> list[dict]:
+    """The study items for the web labelling page: product, 8 reviews and numbered sentences.
+
+    As blind as the reading pack: no model, condition, level, collection id or review rating.
+    """
+    return [{"id": s.summary_id, "order": n, "topic": collections[s.collection_id].topic,
+             "reviews": list(collections[s.collection_id].texts),
+             "sentences": [{"item_id": f"{s.summary_id}-{k}", "text": text}
+                           for k, text in enumerate(s.sentences, start=1)]}
+            for n, s in enumerate(summaries, start=1)]
+
+
+def web_labels(docs: Iterable[object]) -> dict[str, dict]:
+    """Labels per item_id from the page's per-summary documents (`{"items": {item_id: {...}}}`).
+
+    The documents are other people's input, so anything malformed is skipped and values
+    are only normalised here; `read_sheet` does the validating once they are in a sheet.
+    """
+    labels: dict[str, dict] = {}
+    for doc in docs:
+        items = doc.get("items") if isinstance(doc, Mapping) else None
+        if not isinstance(items, Mapping):
+            continue
+        for item, row in items.items():
+            if not isinstance(row, Mapping):
+                continue
+            labels[str(item)] = {name: (_cell(row.get(name)).lower() or None)
+                                 for name in ("claim", "sentiment", "support")}
+            labels[str(item)]["notes"] = _cell(row.get("notes")) or None
+    return labels
+
+
+def write_sheet(summaries: Sequence[SampledSummary], path: str | Path,
+                labels: Mapping[str, Mapping] | None = None) -> None:
+    """A labelling sheet with drop-down lists, plus the guide on a second tab.
+
+    Blank, or filled from `labels` (item_id -> claim/sentiment/support/notes), as the
+    web page's labels are, so that `read_sheet` checks them like any hand-filled sheet."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font
     from openpyxl.utils import get_column_letter
@@ -176,7 +212,10 @@ def write_sheet(summaries: Sequence[SampledSummary], path: str | Path) -> None:
     ws.append(list(SHEET_COLUMNS))
     for s in summaries:
         for k, sentence in enumerate(s.sentences, start=1):
-            ws.append([f"{s.summary_id}-{k}", sentence, None, None, None, None])
+            item = f"{s.summary_id}-{k}"
+            row = (labels or {}).get(item, {})
+            ws.append([item, sentence, row.get("claim"), row.get("sentiment"), row.get("support"),
+                       row.get("notes")])
     last = ws.max_row
     for name, values in (("claim", CLAIM_VALUES), ("sentiment", SENTIMENT_VALUES),
                          ("support", SUPPORT_VALUES)):

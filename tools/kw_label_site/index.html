@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light">
+<title>Review Summary Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+/* One deliberate light look, the same on every device and in every system theme. */
+:root {
+  color-scheme: light;
+  --page: #f5f7fa; --surface: #ffffff; --sunk: #f0f3f7; --line: #dde2ea; --line-strong: #c4ccd8;
+  --ink: #161d29; --ink-2: #3a4556; --muted: #5f6b7d;
+  --accent: #2357a5; --accent-ink: #ffffff; --accent-soft: #e9f0fb;
+  --ok: #18794a; --ok-soft: #e5f4ec; --warn: #8a5800; --warn-soft: #fcf2dc; --bad: #b42318; --bad-soft: #fdecea;
+  --pos: #1d68c9; --pos-soft: #e8f0fc; --neg: #bf4d0d; --neg-soft: #fdefe5;
+  --mixed: #6b3fbf; --mixed-soft: #f2ecfc; --neutral: #566175; --neutral-soft: #eef1f5;
+  --ui: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --read: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --radius: 10px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--page); color: var(--ink); }
+body { font: 16px/1.55 var(--ui); -webkit-font-smoothing: antialiased; }
+[hidden] { display: none !important; }
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { text-wrap: balance; }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* header */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: rgba(255,255,255,.96);
+  backdrop-filter: saturate(1.2) blur(6px); border-bottom: 1px solid var(--line); }
+.top-in { max-width: 1280px; margin: 0 auto; padding: 12px 20px; display: grid; gap: 10px; }
+.top-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+.brand { display: grid; gap: 2px; margin-right: auto; }
+.eyebrow { font: 500 11px/1.2 var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--accent); }
+.brand h1 { font-size: 20px; font-weight: 700; }
+.meter { display: grid; gap: 5px; min-width: 210px; }
+.meter b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.meter span { font-size: 13px; color: var(--muted); }
+.track { height: 8px; border-radius: 4px; background: var(--sunk); overflow: hidden; }
+.track i { display: block; height: 100%; width: 0; background: var(--ok); border-radius: 4px; transition: width .3s; }
+.save { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--muted); }
+.save::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+.save[data-state="saving"]::before { background: var(--warn); }
+.save[data-state="error"] { color: var(--bad); }
+.save[data-state="error"]::before { background: var(--bad); }
+.save[data-state="idle"]:empty::before { display: none; }
+.who { font: 500 13px/1 var(--mono); padding: 7px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.btn { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 8px; padding: 9px 14px;
+  cursor: pointer; font-size: 15px; font-weight: 700; color: var(--ink); min-height: 42px; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: #1c4a8f; color: #fff; }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--accent); padding-inline: 6px; }
+.btn[disabled] { opacity: .45; cursor: default; }
+
+/* summary strip */
+.strip { display: flex; align-items: center; gap: 10px; }
+.strip-label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px; scrollbar-width: thin; }
+.chip { flex: 0 0 auto; font: 500 13px/1 var(--mono); min-width: 40px; height: 34px; padding: 0 10px; border-radius: 8px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.chip:hover { border-color: var(--accent); }
+.chip[data-state="partial"] { background: var(--warn-soft); border-color: #d9a640; color: var(--ink); }
+.chip[data-state="done"] { background: var(--ok-soft); border-color: #5fb487; color: var(--ink); }
+.chip[aria-current="true"] { outline: 2.5px solid var(--accent); outline-offset: 1px; color: var(--ink); }
+.chip.practice { font-family: var(--ui); font-weight: 700; }
+
+/* page */
+.wrap { max-width: 1280px; margin: 0 auto; padding-inline: 20px; padding-block: 22px 72px; display: grid; gap: 18px; }
+.notice { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 16px 18px;
+  display: grid; gap: 8px; max-width: 900px; }
+.notice strong { font-size: 17px; }
+.notice p { color: var(--ink-2); max-width: 70ch; }
+.notice.info { border-color: #b7cbec; background: var(--accent-soft); }
+.notice.warn { border-color: #e6c27a; background: var(--warn-soft); }
+.notice.bad { border-color: #f0a9a2; background: var(--bad-soft); }
+.notice .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+
+/* sign-in */
+.wrap > * { min-width: 0; }
+.signin { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 22px 22px 20px;
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; width: 100%; max-width: 460px; }
+.signin > * { min-width: 0; }
+.signin h2 { font-size: 20px; }
+.signin p { color: var(--ink-2); font-size: 15px; }
+.signin .field { display: grid; gap: 6px; }
+.signin label { font-size: 14px; font-weight: 700; }
+.signin input { border: 1.5px solid var(--line-strong); border-radius: 8px; padding: 11px 12px; background: var(--surface);
+  font-size: 17px; width: 100%; min-width: 0; }
+.signin input:focus-visible { border-color: var(--accent); }
+.signin .err { color: var(--bad); font-size: 14.5px; font-weight: 700; min-height: 1em; }
+.signin small { color: var(--muted); font-size: 13.5px; line-height: 1.45; }
+
+details.guide { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); }
+details.guide > summary { cursor: pointer; padding: 14px 18px; font-weight: 700; font-size: 16px; list-style: none;
+  display: flex; align-items: center; gap: 10px; }
+details.guide > summary::-webkit-details-marker { display: none; }
+details.guide > summary::before { content: "›"; display: inline-block; font-size: 20px; line-height: 1; color: var(--accent);
+  transition: transform .2s; }
+details.guide[open] > summary::before { transform: rotate(90deg); }
+details.guide > summary span { font-weight: 400; color: var(--muted); font-size: 14px; }
+.guide-body { padding: 0 18px 18px; display: grid; gap: 14px; }
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; max-width: 78ch; color: var(--ink-2); }
+.rules { white-space: pre-wrap; font: 15px/1.65 var(--ui); color: var(--ink-2); background: var(--sunk);
+  border-radius: 8px; padding: 14px 16px; margin: 0; overflow-x: auto; }
+
+/* work area */
+.work { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 22px; align-items: start; }
+.panel { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); }
+.reviews { position: sticky; top: 132px; max-height: calc(100vh - 150px); overflow: auto; padding: 18px 20px; }
+.reviews-head { display: grid; gap: 2px; padding-bottom: 12px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.reviews-head small { font-size: 13px; color: var(--muted); }
+.topic { font: 600 24px/1.25 var(--read); }
+.reviews ol { list-style: none; margin: 0; padding: 0; }
+.reviews li { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--sunk); }
+.reviews li:last-child { border-bottom: 0; }
+.rnum { font: 500 12px/1 var(--mono); color: var(--accent); background: var(--accent-soft); border-radius: 6px;
+  height: 24px; display: grid; place-items: center; margin-top: 3px; }
+.rtext { font: 17px/1.7 var(--read); color: var(--ink); max-width: 68ch; }
+
+.statements { display: grid; gap: 14px; }
+.stmt-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.stmt-head h2 { font-size: 18px; }
+.stmt-head .count { font-size: 14px; color: var(--muted); }
+.card { padding: 18px 20px; display: grid; gap: 14px; }
+.card[data-done="true"] { border-color: #8cc9a8; box-shadow: inset 4px 0 0 var(--ok); }
+.card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.iid { font: 500 13px/1 var(--mono); color: var(--muted); }
+.state { font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--sunk); color: var(--muted); }
+.card[data-done="true"] .state { background: var(--ok-soft); color: var(--ok); }
+.sentence { font: 19px/1.55 var(--read); color: var(--ink); }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
+legend { font-size: 14px; font-weight: 700; color: var(--ink); padding: 0; margin-bottom: 2px; }
+.hint { font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+fieldset[disabled] { opacity: .4; }
+.seg { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.seg label { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 15px; border-radius: 9px;
+  border: 1.5px solid var(--line-strong); background: var(--surface); cursor: pointer; font-size: 15px; font-weight: 700;
+  color: var(--ink-2); user-select: none; transition: background .12s, border-color .12s; }
+.seg label:hover { border-color: var(--accent); }
+.seg input:focus-visible + label { outline: 3px solid var(--accent); outline-offset: 2px; }
+.seg input:checked + label::before { content: "✓"; font-size: 14px; }
+.seg input:checked + label { color: var(--ink); }
+.seg input[value="yes"]:checked + label, .seg input[value="no"]:checked + label { background: var(--accent-soft); border-color: var(--accent); }
+.seg input[value="positive"]:checked + label { background: var(--pos-soft); border-color: var(--pos); }
+.seg input[value="negative"]:checked + label { background: var(--neg-soft); border-color: var(--neg); }
+.seg input[value="neutral"]:checked + label { background: var(--neutral-soft); border-color: var(--neutral); }
+.seg input[value="mixed"]:checked + label { background: var(--mixed-soft); border-color: var(--mixed); }
+.seg input[value="supported"]:checked + label { background: var(--ok-soft); border-color: var(--ok); }
+.seg input[value="unsupported"]:checked + label { background: var(--warn-soft); border-color: var(--warn); }
+.seg input[value="contradicted"]:checked + label { background: var(--bad-soft); border-color: var(--bad); }
+fieldset[disabled] label { cursor: default; }
+.notes { display: grid; gap: 6px; justify-items: start; }
+.notes input { justify-self: stretch; }
+.notes input { border: 1.5px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; background: var(--surface);
+  width: 100%; font-size: 15px; }
+.done-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 14px 18px; border-radius: var(--radius); background: var(--ok-soft); border: 1px solid #8cc9a8; }
+.done-bar p { font-weight: 700; color: var(--ok); }
+.pager { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+
+@media (max-width: 600px) { details.guide > summary span { display: none; } }
+@media (max-width: 900px) {
+  .work { grid-template-columns: 1fr; }
+  .reviews { position: static; max-height: none; }
+  .top { position: static; }
+  .sentence { font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="top-row">
+      <div class="brand">
+        <span class="eyebrow">Keyword study · human check</span>
+        <h1>Review Summary Check</h1>
+      </div>
+      <div class="meter" id="meter" hidden>
+        <b id="meter-label">0 of 100 labelled</b>
+        <span class="track"><i id="meter-fill"></i></span>
+      </div>
+      <span class="save" id="save" data-state="idle" aria-live="polite"></span>
+      <span class="who" id="who" hidden></span>
+      <button class="btn ghost" id="signout" type="button" hidden>Sign out</button>
+    </div>
+    <nav class="strip" id="nav" aria-label="Summaries" hidden>
+      <span class="strip-label">Summaries</span>
+      <div class="chips" id="chips"></div>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="notices"></div>
+
+  <details class="guide" id="guide">
+    <summary>How to label <span>· steps and the full labelling guide</span></summary>
+    <div class="guide-body">
+      <ol class="steps">
+        <li>Pick a summary from the row of buttons at the top. Read its 8 reviews first, then label its 4 statements.</li>
+        <li>Judge every statement on its own. "It" or "this" means the product or drug named above the reviews.</li>
+        <li>Every choice saves as you make it. You can stop at any time and come back on any device by signing in with the same name and PIN.</li>
+        <li>You will not see which model or prompt wrote a summary, or the reviews' star ratings. Please don't look them up or compare answers with other annotators until everyone has finished.</li>
+      </ol>
+      <p>The full labelling guide, word for word:</p>
+      <pre class="rules" id="rules">Loading the guide…</pre>
+    </div>
+  </details>
+
+  <main class="work" id="work" hidden>
+    <aside class="panel reviews" aria-labelledby="topic">
+      <div class="reviews-head">
+        <small>Product or drug · read these 8 reviews first</small>
+        <h2 class="topic" id="topic"></h2>
+      </div>
+      <ol id="review-list"></ol>
+    </aside>
+    <section class="statements" aria-labelledby="stmt-title">
+      <div class="stmt-head"><h2 id="stmt-title">Statements to label</h2><span class="count" id="stmt-count"></span></div>
+      <div id="cards" class="statements"></div>
+      <div class="done-bar" id="done-bar" hidden>
+        <p id="done-text">All 4 statements labelled.</p>
+        <button class="btn primary" id="next-open" type="button">Next unfinished summary →</button>
+      </div>
+      <div class="pager">
+        <button class="btn" id="prev" type="button">← Previous</button>
+        <button class="btn" id="next" type="button">Next →</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const GROUPS = [
+    { key: "claim", legend: "Is it a claim about the product?",
+      hint: "Yes: it says something about the product or reviewers' experiences. No: a heading, a note about the task, a bare count, or a fragment.",
+      values: [["yes", "Yes"], ["no", "No"]] },
+    { key: "sentiment", legend: "Sentiment",
+      hint: "What the statement says about the product. Mixed: clearly both in one sentence.",
+      values: [["positive", "Positive"], ["negative", "Negative"], ["neutral", "Neutral"], ["mixed", "Mixed"]] },
+    { key: "support", legend: "Support in the 8 reviews",
+      hint: "Supported: a review states or clearly implies it (ignore words like “many” or “most”). Unsupported: not in the reviews. Contradicted: no review supports it and one says the opposite.",
+      values: [["supported", "Supported"], ["unsupported", "Unsupported"], ["contradicted", "Contradicted"]] },
+  ];
+  const S = { token: null, who: null, status: null, items: [], labels: {}, current: null, canSave: false,
+    timers: {}, saving: {}, again: {}, dirty: new Set(), failed: new Set() };
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === "text") n.textContent = v; else if (k === "class") n.className = v;
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else if (v !== null && v !== undefined) n.setAttribute(k, v);
+    }
+    for (const kid of kids) if (kid) n.append(kid);
+    return n;
+  };
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } },
+                  set: (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} },
+                  del: (k) => { try { localStorage.removeItem(k); } catch (_) {} } };
+
+  // Annotators sign in on this page with a name and PIN, which gives a session token kept for this
+  // browser. An older personal link (?t=<token>) still works: keep it and take it out of the address bar.
+  (function readToken() {
+    const url = new URL(location.href);
+    const t = url.searchParams.get("t");
+    if (t) { S.token = t; store.set("rsc-token", t); url.searchParams.delete("t"); history.replaceState(null, "", url.pathname + url.search + url.hash); }
+    else S.token = store.get("rsc-token");
+  })();
+
+  async function api(path, opts = {}) {
+    const r = await fetch(path, { ...opts, headers: { "content-type": "application/json", "x-annotator-token": S.token || "", ...(opts.headers || {}) } });
+    let body = null; try { body = await r.json(); } catch (_) {}
+    if (!r.ok) { const e = new Error((body && body.error) || `HTTP ${r.status}`); e.status = r.status; throw e; }
+    return body;
+  }
+
+  function notice(kind, title, body, actions) {
+    const box = el("div", { class: `notice ${kind}`, role: kind === "bad" ? "alert" : null }, el("strong", { text: title }));
+    if (body) box.append(el("p", { text: body }));
+    if (actions && actions.length) box.append(el("div", { class: "actions" }, ...actions));
+    $("notices").replaceChildren(box);
+  }
+  const clearNotice = () => $("notices").replaceChildren();
+
+  const complete = (l) => !!l && (l.claim === "no" || (l.claim === "yes" && !!l.sentiment && !!l.support));
+  const studyItems = () => S.items.filter((it) => !it.practice);
+  const labelOf = (sid, iid) => (S.labels[sid] && S.labels[sid][iid]) || null;
+  const doneIn = (it) => it.sentences.filter((s) => complete(labelOf(it.id, s.item_id))).length;
+  const summaryState = (it) => { const n = doneIn(it); return n === 0 ? "empty" : n === it.sentences.length ? "done" : "partial"; };
+  function progress() {
+    let done = 0, total = 0;
+    for (const it of studyItems()) { total += it.sentences.length; done += doneIn(it); }
+    return { done, total };
+  }
+  const anyLabels = () => Object.values(S.labels).some((m) => Object.values(m || {}).some((l) => l && l.claim));
+  // The next study summary that is not finished, after `fromId`; from the first one when coming
+  // from the practice summary (fromId null).
+  const nextOpen = (fromId) => {
+    const study = studyItems();
+    const at = study.findIndex((x) => x.id === fromId);
+    for (let k = 0; k < study.length; k++) {
+      const it = study[(at + 1 + k) % study.length];
+      if (it.id !== fromId && summaryState(it) !== "done") return it;
+    }
+    return null;
+  };
+
+  function renderMeter() {
+    const { done, total } = progress();
+    $("meter").hidden = total === 0;
+    $("meter-label").textContent = `${done} of ${total} labelled`;
+    $("meter-fill").style.width = total ? `${(100 * done / total).toFixed(1)}%` : "0";
+  }
+  function renderSave() {
+    const s = $("save");
+    if (!S.canSave) { s.textContent = ""; s.dataset.state = "idle"; return; }
+    if (S.failed.size) {
+      s.dataset.state = "error";
+      s.replaceChildren(el("span", { text: "Not saved" }),
+        el("button", { class: "btn ghost", type: "button", text: "Retry", onclick: () => [...S.failed].forEach(flush) }));
+    } else if (S.dirty.size || Object.values(S.saving).some(Boolean)) { s.dataset.state = "saving"; s.textContent = "Saving…"; }
+    else { s.dataset.state = "saved"; s.textContent = "Saved"; }
+  }
+
+  function queueSave(sid) {
+    S.dirty.add(sid);
+    clearTimeout(S.timers[sid]);
+    S.timers[sid] = setTimeout(() => flush(sid), 1200);
+    renderSave();
+  }
+  async function flush(sid) {
+    if (S.saving[sid]) { S.again[sid] = true; return; }
+    S.saving[sid] = true; S.dirty.delete(sid);
+    try {
+      await api("/api/labels", { method: "PUT", body: JSON.stringify({ sid, items: S.labels[sid] || {} }) });
+      S.failed.delete(sid);
+    } catch (e) {
+      S.dirty.add(sid); S.failed.add(sid);
+      if (e.status === 401 || e.status === 403) { S.canSave = false; notice("warn", "Your labels can't be saved.", e.message); }
+    } finally { S.saving[sid] = false; }
+    if (S.again[sid]) { S.again[sid] = false; return flush(sid); }
+    renderSave(); renderStatus();
+  }
+
+  function renderNav() {
+    $("nav").hidden = S.items.length === 0;
+    $("chips").replaceChildren(...S.items.map((it) => el("button", {
+      class: "chip" + (it.practice ? " practice" : ""), type: "button", "data-state": summaryState(it),
+      "aria-current": String(it.id === S.current), text: it.practice ? "Practice" : it.id.replace(/^S/, ""),
+      "aria-label": it.practice ? "Practice summary (not part of the study)" : `Summary ${it.id}`,
+      title: it.practice ? "Practice summary (not part of the study)" : `Summary ${it.id}`, "data-id": it.id,
+      onclick: () => { open(it.id); window.scrollTo({ top: 0 }); },
+    })));
+  }
+  function updateChip(it) {
+    const chip = $("chips").querySelector(`[data-id="${it.id}"]`);
+    if (chip) chip.dataset.state = summaryState(it);
+  }
+  function setLabel(sid, iid, patch) {
+    S.labels[sid] = S.labels[sid] || {};
+    S.labels[sid][iid] = Object.assign({ claim: null, sentiment: null, support: null, notes: "" }, S.labels[sid][iid] || {}, patch);
+  }
+  function applyDisabled(c, lab) {
+    const locked = !S.canSave || S.status === "closed";
+    c.querySelectorAll("fieldset").forEach((fs) => { fs.disabled = locked || (fs.dataset.group !== "claim" && lab.claim === "no"); });
+    const n = c.querySelector(".notes input"); if (n) n.disabled = locked;
+  }
+  function renderDone(it) {
+    const n = doneIn(it), all = n === it.sentences.length;
+    $("stmt-count").textContent = `${n} of ${it.sentences.length} labelled` + (it.practice ? " · practice, not part of the study" : "");
+    const nxt = nextOpen(it.practice ? null : it.id);
+    $("done-bar").hidden = !all;
+    $("done-text").textContent = it.practice ? "Practice done. The study summaries are next." :
+      nxt ? `All ${it.sentences.length} statements labelled.` : "Every study statement is labelled. Thank you!";
+    $("next-open").hidden = !nxt;
+    $("next-open").onclick = () => { if (nxt) { open(nxt.id); window.scrollTo({ top: 0 }); } };
+  }
+  function choose(it, s, key, value, c) {
+    const patch = { [key]: value };
+    if (key === "claim" && value === "no") {
+      patch.sentiment = null; patch.support = null;
+      c.querySelectorAll('fieldset[data-group="sentiment"] input, fieldset[data-group="support"] input').forEach((i) => { i.checked = false; });
+    }
+    setLabel(it.id, s.item_id, patch);
+    const lab = labelOf(it.id, s.item_id);
+    c.dataset.done = String(complete(lab));
+    c.querySelector(".state").textContent = complete(lab) ? "Done" : "To label";
+    applyDisabled(c, lab);
+    renderDone(it); updateChip(it); renderMeter();
+    if (S.canSave) queueSave(it.id);
+  }
+  function card(it, s) {
+    const lab = labelOf(it.id, s.item_id) || {};
+    const c = el("article", { class: "panel card", "data-done": String(complete(lab)), "aria-labelledby": `${s.item_id}-text` });
+    c.append(el("div", { class: "card-top" }, el("span", { class: "iid", text: s.item_id }),
+      el("span", { class: "state", text: complete(lab) ? "Done" : "To label" })));
+    c.append(el("p", { class: "sentence", id: `${s.item_id}-text`, text: s.text }));
+    for (const g of GROUPS) {
+      const fs = el("fieldset", { "data-group": g.key }, el("legend", { text: g.legend }));
+      const seg = el("div", { class: "seg" });
+      for (const [value, label] of g.values) {
+        const id = `${s.item_id}-${g.key}-${value}`;
+        const input = el("input", { type: "radio", name: `${s.item_id}-${g.key}`, id, value });
+        if (lab[g.key] === value) input.checked = true;
+        input.addEventListener("change", () => choose(it, s, g.key, value, c));
+        seg.append(input, el("label", { for: id, text: label }));
+      }
+      fs.append(seg);
+      if (it.sentences[0] === s) fs.append(el("p", { class: "hint", text: g.hint }));  // once per summary
+      c.append(fs);
+    }
+    const notesId = `${s.item_id}-notes`;
+    const wrap = el("div", { class: "notes" });
+    const showNotes = () => {
+      const input = el("input", { id: notesId, type: "text", maxlength: "500", placeholder: "Anything that made this hard to label" });
+      input.value = lab.notes || (labelOf(it.id, s.item_id) || {}).notes || "";
+      input.addEventListener("input", () => { setLabel(it.id, s.item_id, { notes: input.value }); if (S.canSave) queueSave(it.id); });
+      wrap.replaceChildren(el("label", { for: notesId, class: "hint", text: "Note (optional)" }), input);
+      applyDisabled(c, labelOf(it.id, s.item_id) || lab);
+      return input;
+    };
+    if (lab.notes) showNotes();
+    else wrap.append(el("button", { class: "btn ghost", type: "button", text: "+ Add a note", onclick: () => showNotes().focus() }));
+    c.append(wrap);
+    applyDisabled(c, lab);
+    return c;
+  }
+  function open(sid) {
+    const it = S.items.find((x) => x.id === sid) || S.items[0];
+    if (!it) return;
+    S.current = it.id; store.set("rsc-current", it.id);
+    $("work").hidden = false;
+    $("topic").textContent = it.topic;
+    $("review-list").replaceChildren(...it.reviews.map((r, i) =>
+      el("li", {}, el("span", { class: "rnum", text: `R${i + 1}` }), el("p", { class: "rtext", text: r }))));
+    $("cards").replaceChildren(...it.sentences.map((s) => card(it, s)));
+    renderDone(it);
+    const idx = S.items.indexOf(it);
+    $("prev").disabled = idx <= 0; $("next").disabled = idx >= S.items.length - 1;
+    $("chips").querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-current", String(c.dataset.id === it.id)));
+    const chip = $("chips").querySelector(`[data-id="${it.id}"]`); if (chip && chip.scrollIntoView) chip.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const panel = document.querySelector(".reviews"); if (panel.scrollTo) panel.scrollTo(0, 0);
+  }
+  $("prev").addEventListener("click", () => { const i = S.items.findIndex((x) => x.id === S.current); if (i > 0) { open(S.items[i - 1].id); window.scrollTo({ top: 0 }); } });
+  $("next").addEventListener("click", () => { const i = S.items.findIndex((x) => x.id === S.current); if (i < S.items.length - 1) { open(S.items[i + 1].id); window.scrollTo({ top: 0 }); } });
+
+  function renderStatus() {
+    if (!S.canSave) return;
+    if (S.status === "closed") { notice("info", "The check is closed.", "Thank you. Your labels are saved and can no longer be changed."); return; }
+    const { done, total } = progress();
+    if (total && done === total) notice("info", "Every study statement is labelled. Thank you!", "You can still change an answer until the study owner closes the check.");
+    else if (!S.failed.size && anyLabels()) clearNotice();
+  }
+  function welcome() {
+    const practice = S.items.find((x) => x.practice);
+    const { total } = progress();
+    notice("info", `Welcome, ${S.who}.`,
+      `You will label ${total} statements from ${studyItems().length} short summaries, about 90 minutes in all. Everything saves as you go, so you can stop and come back by signing in with the same name and PIN. Start with the practice summary to learn the buttons; it is not part of the study.`,
+      [practice ? el("button", { class: "btn primary", type: "button", text: "Start the practice summary", onclick: () => { clearNotice(); open(practice.id); } }) : null,
+       el("button", { class: "btn", type: "button", text: "Read the full guide", onclick: () => { $("guide").open = true; $("guide").scrollIntoView({ behavior: "smooth" }); } })].filter(Boolean));
+  }
+
+  function signOut() {
+    store.del("rsc-token"); store.del("rsc-current");
+    location.replace(location.pathname);
+  }
+  $("signout").addEventListener("click", () => {
+    if ((S.dirty.size || S.failed.size) && !confirm("Some labels are not saved yet. Sign out anyway?")) return;
+    signOut();
+  });
+
+  function signIn(message) {
+    $("work").hidden = true; $("nav").hidden = true; $("meter").hidden = true;
+    const err = el("p", { class: "err", role: "alert", text: message || "" });
+    const name = el("input", { id: "si-name", name: "username", autocomplete: "username", autocapitalize: "none",
+      spellcheck: "false", maxlength: "20", required: "" });
+    const pin = el("input", { id: "si-pin", name: "pin", type: "password", inputmode: "numeric", autocomplete: "current-password",
+      pattern: "[0-9]{4,8}", maxlength: "8", required: "" });
+    const go = el("button", { class: "btn primary", type: "submit", text: "Sign in" });
+    const form = el("form", { class: "signin", novalidate: "" },
+      el("h2", { text: "Sign in to start labelling" }),
+      el("p", { text: "Use the same name and PIN every time, on any device. Your labels are saved under your name." }),
+      el("div", { class: "field" }, el("label", { for: "si-name", text: "Your name" }), name,
+        el("small", { text: "Your first name is fine, e.g. “priya”. Letters, digits and hyphens." })),
+      el("div", { class: "field" }, el("label", { for: "si-pin", text: "PIN" }), pin,
+        el("small", { text: "First time here? Choose any 4 to 8 digits and remember them. Next time, enter the same PIN." })),
+      err, go);
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      err.textContent = "";
+      if (!/^\d{4,8}$/.test(pin.value.trim())) { err.textContent = "Your PIN must be 4 to 8 digits."; pin.focus(); return; }
+      go.disabled = true; go.textContent = "Signing in…";
+      try {
+        const r = await fetch("/api/login", { method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: name.value, pin: pin.value.trim() }) });
+        let body = null; try { body = await r.json(); } catch (_) {}
+        if (!r.ok) throw new Error((body && body.error) || `HTTP ${r.status}`);
+        S.token = body.token; store.set("rsc-token", body.token);
+        boot();
+      } catch (e) {
+        err.textContent = e.message === "Failed to fetch" ? "Could not reach the site. Check your connection." : e.message;
+        go.disabled = false; go.textContent = "Sign in";
+      }
+    });
+    $("notices").replaceChildren(form);
+    name.focus();
+  }
+
+  async function boot() {
+    if (!S.token) { signIn(); return; }
+    notice("", "Loading…", "");
+    try {
+      const data = await api("/api/items");
+      S.who = data.annotator; S.status = data.status; S.items = data.items;
+      $("rules").textContent = (data.guide || []).join("\n");
+      const mine = await api("/api/labels");
+      S.labels = JSON.parse(JSON.stringify(mine.labels || {}));
+      S.canSave = S.status !== "closed";
+      $("who").hidden = false; $("who").textContent = S.who; $("signout").hidden = false;
+      clearNotice();
+      renderNav(); renderMeter();
+      if (!anyLabels()) {
+        welcome();
+        open((S.items.find((x) => x.practice) || S.items[0]).id);
+      } else {
+        const saved = store.get("rsc-current");
+        const first = S.items.find((x) => !x.practice && summaryState(x) !== "done") || S.items[0];
+        open(S.items.some((x) => x.id === saved) ? saved : first.id);
+      }
+      renderSave(); renderStatus();
+    } catch (e) {
+      if (e.status === 401) { store.del("rsc-token"); S.token = null; signIn("Please sign in again."); }
+      else notice("bad", "The page could not load.", "Check your connection and reload. If it keeps failing, tell the study owner.");
+    }
+  }
+  window.addEventListener("beforeunload", (ev) => { if (S.dirty.size || S.failed.size) ev.preventDefault(); });
+  boot();
+})();
+</script>
+</body>
+</html>

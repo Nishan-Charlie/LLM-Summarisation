@@ -19,9 +19,10 @@ from datetime import datetime, timezone
 from fairsum.kwsum.backends import DecodingConfig, build_backend
 from fairsum.kwsum.collections import Collection, read_collections
 from fairsum.kwsum.compliance import classify_output
-from fairsum.kwsum.config import COLLECTIONS_PATH, KEYWORDS_PATH, load_config
+from fairsum.kwsum.config import COLLECTIONS_PATH, KEYWORDS_PATH, REPO_ROOT, load_config
 from fairsum.kwsum.manifest import check_or_write_manifest, environment_info, input_identity
-from fairsum.kwsum.prompts import build_prompt
+from fairsum.kwsum.prompts import LENGTH_REFERENCE, build_prompt, length_targets
+from fairsum.kwsum.scoring import SCORER_VERSION
 from fairsum.kwsum.store import append_jsonl, done_keys, read_jsonl
 
 KEY = ("collection_id", "condition", "model")
@@ -43,6 +44,18 @@ def select(collections: list[Collection], datasets, levels, split: str,
         seen[cell] = seen.get(cell, 0) + 1
         out.append(c)
     return out
+
+
+def with_length_targets(keywords: dict, cfg, model: str, conditions) -> dict:
+    """Add each collection's direct_len word target: the length of this model's reference
+    summary (kw_strat) in the reference run, or the model's median where that is missing."""
+    if not cfg.length_reference_run:
+        raise SystemExit("direct_len needs [generation] length_reference_run in the config")
+    path = REPO_ROOT / "results" / "kw" / cfg.length_reference_run / "scores.jsonl"
+    reference = {LENGTH_REFERENCE[c] for c in conditions if c in LENGTH_REFERENCE}
+    (ref_condition,) = reference
+    targets, fallback = length_targets(read_jsonl(path), model, ref_condition, SCORER_VERSION)
+    return {cid: {**row, "target_words": targets.get(cid, fallback)} for cid, row in keywords.items()}
 
 
 def peak_vram_gb() -> float | None:
@@ -68,6 +81,8 @@ def main() -> None:
     ap.add_argument("--batch-size", type=int, default=None,
                     help="override the configured batch size (the queue retries with 4, then 2, "
                          "after a GPU failure on long prompts)")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print the count and one prompt per condition, load no model")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -82,6 +97,8 @@ def main() -> None:
                          pick(args.levels), args.split, args.limit_per_cell)
     keywords = {row["collection_id"]: row for row in read_jsonl(KEYWORDS_PATH)}
     conditions = pick(args.conditions) or list(cfg.conditions)
+    if any(cond in LENGTH_REFERENCE for cond in conditions):
+        keywords = with_length_targets(keywords, cfg, spec.name, conditions)
 
     done = done_keys(cfg.generations_path, KEY)
     todo = [(c, cond) for c in collections for cond in conditions
@@ -90,6 +107,12 @@ def main() -> None:
                for c, cond in todo}
     todo.sort(key=lambda item: len(prompts[(item[0].collection_id, item[1])]))
     print(f"{spec.name}: {len(todo)} generations to run; {len(done)} rows already stored")
+    if args.dry_run:
+        for cond in conditions:
+            example = next(((c, k) for c, k in todo if k == cond), None)
+            if example:
+                print(f"--- {cond}\n{prompts[(example[0].collection_id, cond)]}")
+        return
     if not todo:
         return
 

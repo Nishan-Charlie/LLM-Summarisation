@@ -5,6 +5,10 @@
 
     # 2. annotators fill annotations/kw_human_check/labels_<name>.xlsx,
     #    reading annotations/kw_human_check/reading_pack.html
+    #    -- or label on the web page: export the blinded items for it, and turn its labels
+    #    (a JSON file {"annotators": {name: [per-summary documents]}}) back into those sheets
+    python scripts/kw_human_check.py web-items --config configs/kw_week1.toml
+    python scripts/kw_human_check.py from-web --config configs/kw_week1.toml --labels web_labels.json
 
     # 3. compare with the scorer (and with each other, when both sheets exist)
     python scripts/kw_human_check.py check --config configs/kw_week1.toml
@@ -19,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -27,8 +32,8 @@ from fairsum.kwsum.collections import read_collections
 from fairsum.kwsum.config import COLLECTIONS_PATH, REPO_ROOT, load_config
 from fairsum.kwsum.human_check import (
     HumanCheckSheetError, binary_support, compare, item_ids, read_key, read_sheet, sample_summaries,
-    scorer_labels, sentiment_view, support_view, unsupported_rate_gap, write_key,
-    write_reading_pack, write_sheet,
+    scorer_labels, sentiment_view, support_view, unsupported_rate_gap, web_items, web_labels,
+    write_key, write_reading_pack, write_sheet,
 )
 from fairsum.kwsum.store import read_jsonl
 
@@ -70,6 +75,35 @@ def make(args, cfg) -> None:
           f"models {models}, from {len(gens)} test generations")
     print(f"sheets: {', '.join(str(p) for p in sheets)}")
     print(f"reading pack: {SHEET_DIR / 'reading_pack.html'}")
+
+
+def export_web_items(args, cfg) -> None:
+    """The blinded items for the labelling page; the key stays in results/."""
+    summaries = read_key(cfg.results_dir / "human_check_key.json")
+    collections = {c.collection_id: c for c in read_collections(COLLECTIONS_PATH)}
+    out = cfg.results_dir / "human_check_web_items.json"
+    out.write_text(json.dumps({"items": web_items(summaries, collections)}, indent=1, ensure_ascii=False),
+                   encoding="utf-8")
+    print(f"{len(summaries)} summaries, {len(item_ids(summaries))} sentences -> {out}")
+
+
+def import_web_labels(args, cfg) -> int:
+    """One filled sheet per annotator from the page's labels, so `check` reads them unchanged."""
+    summaries = read_key(cfg.results_dir / "human_check_key.json")
+    data = json.loads(Path(args.labels).read_text(encoding="utf-8"))
+    for name, docs in data["annotators"].items():
+        if not re.fullmatch(r"[a-z0-9-]{2,20}", name):
+            print(f"skipped annotator name {name!r}: use 2-20 lowercase letters, digits or hyphens")
+            continue
+        path = SHEET_DIR / f"labels_{name}.xlsx"
+        if path.exists() and not args.force:
+            print(f"refusing to overwrite {path} (pass --force)")
+            return 1
+        labels = web_labels(docs)
+        write_sheet(summaries, path, labels=labels)
+        done = sum(1 for i in item_ids(summaries) if (labels.get(i) or {}).get("claim"))
+        print(f"{name}: {done} of {len(item_ids(summaries))} items labelled -> {path}")
+    return 0
 
 
 def check(args, cfg) -> int:
@@ -176,18 +210,24 @@ def check(args, cfg) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("action", choices=["make", "check"])
+    ap.add_argument("action", choices=["make", "check", "web-items", "from-web"])
+    ap.add_argument("--labels", help="from-web: JSON file of the page's labels")
     ap.add_argument("--config", required=True)
     ap.add_argument("--annotators", nargs="+", default=["nishan", "prathyuman"])
     ap.add_argument("--n-summaries", type=int, default=25)
     ap.add_argument("--per-summary", type=int, default=4)
     ap.add_argument("--device", default=None, help="cpu or cuda for the scorer models (check)")
-    ap.add_argument("--force", action="store_true", help="make: overwrite existing sheets")
+    ap.add_argument("--force", action="store_true", help="make, from-web: overwrite existing sheets")
     args = ap.parse_args()
     cfg = load_config(args.config)
     if args.action == "make":
         make(args, cfg)
         return 0
+    if args.action == "web-items":
+        export_web_items(args, cfg)
+        return 0
+    if args.action == "from-web":
+        return import_web_labels(args, cfg)
     return check(args, cfg)
 
 

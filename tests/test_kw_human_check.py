@@ -4,6 +4,7 @@ Sampling, blinding, sheet parsing and the agreement numbers are checked with
 hand-built generations and labels; model calls are replaced by fixed matrices.
 """
 
+import json
 from collections import Counter
 
 import numpy as np
@@ -26,6 +27,8 @@ from fairsum.kwsum.human_check import (
     support_labels,
     support_view,
     unsupported_rate_gap,
+    web_items,
+    web_labels,
     write_key,
     write_reading_pack,
     write_sheet,
@@ -271,3 +274,49 @@ class TestAgreement:
         assert gap["diff"] == pytest.approx(0.5)
         assert gap["ci_lo"] <= 0.5 <= gap["ci_hi"]
         assert gap["n_summaries"] == 2
+
+
+class TestWebRoute:
+    """The labelling page: blinded items go up, labels come back as the same sheets `check` reads."""
+
+    def test_web_items_are_blind_and_complete(self):
+        picked = sample_summaries(grid(models=("secretmodel",)), n_summaries=2, per_summary=4)
+        items = web_items(picked, {s.collection_id: coll(s.collection_id, polarities=("POLSENTINEL",) * 8)
+                                   for s in picked})
+        text = json.dumps(items)
+        for secret in ("secretmodel", "pos75", "kw_strat", "refer_oracle", "POLSENTINEL",
+                       picked[0].collection_id):
+            assert secret not in text
+        first = items[0]
+        assert (first["id"], first["order"], first["topic"]) == (picked[0].summary_id, 1, "Sleepwell")
+        assert first["reviews"] == [f"Review text number {i} about sleep." for i in range(8)]
+        assert [s["item_id"] for s in first["sentences"]] == [f"{picked[0].summary_id}-{k}" for k in range(1, 5)]
+        assert [s["text"] for s in first["sentences"]] == list(picked[0].sentences)
+
+    def test_web_labels_become_a_sheet_that_check_reads(self, tmp_path):
+        picked = sample_summaries(grid(), n_summaries=1, per_summary=4, seed=5)
+        docs = [{"items": {"S01-1": {"claim": "yes", "sentiment": "positive", "support": "supported",
+                                     "notes": "R3 says so"},
+                           "S01-2": {"claim": "no", "sentiment": None, "support": None, "notes": ""}}},
+                {"items": {"S01-3": {"claim": " Yes", "sentiment": "MIXED", "support": "unsupported"},
+                           "S01-4": {"claim": "yes", "sentiment": "negative", "support": "contradicted"},
+                           "P1-1": {"claim": "yes", "sentiment": "positive", "support": "supported"}}},
+                "not a document", {"items": ["not", "a", "mapping"]}]
+        path = tmp_path / "labels_x.xlsx"
+        write_sheet(picked, path, labels=web_labels(docs))
+        got = read_sheet(path, expected_ids=item_ids(picked))
+        assert got["S01-1"] == {"claim": "yes", "sentiment": "positive", "support": "supported"}
+        assert got["S01-2"] == {"claim": "no", "sentiment": None, "support": None}
+        assert got["S01-3"]["sentiment"] == "mixed"
+        assert set(got) == set(item_ids(picked))  # the practice item P1-1 never reaches the sheet
+        notes = [c.value for c in openpyxl.load_workbook(path)["labels"]["F"]]
+        assert "R3 says so" in notes
+
+    def test_unfinished_web_labels_are_reported_not_defaulted(self, tmp_path):
+        picked = sample_summaries(grid(), n_summaries=1, per_summary=4, seed=5)
+        labels = web_labels([{"items": {"S01-1": {"claim": "yes", "sentiment": "positive", "support": ""}}}])
+        path = tmp_path / "labels_x.xlsx"
+        write_sheet(picked, path, labels=labels)
+        with pytest.raises(HumanCheckSheetError) as err:
+            read_sheet(path, expected_ids=item_ids(picked))
+        assert len(err.value.problems) == 4  # S01-1 lacks support; S01-2..4 not labelled

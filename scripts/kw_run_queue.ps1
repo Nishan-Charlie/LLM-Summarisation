@@ -1,6 +1,8 @@
 # Unattended run queue for the keyword study: generate -> score for each model, then analyse.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\kw_run_queue.ps1 -Models qwen2.5-7b,mistral-7b -WaitPid 12152
+#   Amendment 9 controls, logged apart from week 1 (several -Models need -Command, as below):
+#   powershell -ExecutionPolicy Bypass -Command "& '<repo>\scripts\kw_run_queue.ps1' -Config configs/kw_controls.toml -LogTag controls_ -SkipAnalyze -Models llama3.2-1b,llama3.2-3b"
 #   Several PIDs (e.g. an earlier queue and a weight download) need -Command, because -File
 #   passes "74440,46168" as one string:
 #   powershell -ExecutionPolicy Bypass -Command "& '<repo>\scripts\kw_run_queue.ps1' -Models llama3.1-8b -WaitPid 74440,46168"
@@ -16,13 +18,17 @@ param(
     [string]$Config = "configs/kw_week1.toml",
     [string]$BigModelCache = "D:\hf_cache",
     # Small models whose weights are in the default C: cache rather than $BigModelCache.
-    [string[]]$DefaultCacheModels = @("llama3.2-1b", "llama3.2-3b")
+    [string[]]$DefaultCacheModels = @("llama3.2-1b", "llama3.2-3b"),
+    # Prefix for every step's log name, so another run (e.g. "controls_") keeps week 1's logs.
+    [string]$LogTag = "",
+    # The controls run has its own analysis script; kw_analyze.py is for the registered run.
+    [switch]$SkipAnalyze
 )
 
 $root = Split-Path -Parent $PSScriptRoot
 $python = "C:\Users\nisha\miniconda3\python.exe"
 $logs = Join-Path $root "results\kw"
-$queueLog = Join-Path $logs "queue.log"
+$queueLog = Join-Path $logs "$($LogTag)queue.log"
 
 # Out-Host keeps log lines out of the pipeline, so Step can return only its exit code.
 function Note($msg) { "$(Get-Date -Format s)  $msg" | Tee-Object -FilePath $queueLog -Append | Out-Host }
@@ -42,10 +48,10 @@ function Step($name, [string[]]$pyArgs, [bool]$bigCache) {
 # CUBLAS_STATUS_EXECUTION_FAILED at 43%). Generation resumes, so retry with smaller batches.
 function Generate($m, [bool]$bigCache) {
     $base = @("scripts/kw_generate.py", "--config", $Config, "--model", $m, "--split", "test")
-    $code = Step "run_$m" $base $bigCache
+    $code = Step "$($LogTag)run_$m" $base $bigCache
     foreach ($bs in 4, 2) {
         if ($code -eq 0) { return }
-        $code = Step "run_$m`_bs$bs" ($base + @("--batch-size", "$bs")) $bigCache
+        $code = Step "$($LogTag)run_$m`_bs$bs" ($base + @("--batch-size", "$bs")) $bigCache
     }
 }
 
@@ -55,10 +61,10 @@ foreach ($waitFor in $WaitPid) {
 }
 
 # Named after this queue's first model, so a chained queue keeps the earlier queue's log.
-[void](Step "score_before_$($Models[0])" @("scripts/kw_score.py", "--config", $Config) $false)
+[void](Step "$($LogTag)score_before_$($Models[0])" @("scripts/kw_score.py", "--config", $Config) $false)
 foreach ($m in $Models) {
     Generate $m ($m -notin $DefaultCacheModels)
-    [void](Step "score_$m" @("scripts/kw_score.py", "--config", $Config) $false)
+    [void](Step "$($LogTag)score_$m" @("scripts/kw_score.py", "--config", $Config) $false)
 }
-[void](Step "analyze" @("scripts/kw_analyze.py", "--config", $Config) $false)
+if (-not $SkipAnalyze) { [void](Step "$($LogTag)analyze" @("scripts/kw_analyze.py", "--config", $Config) $false) }
 Note "queue finished"

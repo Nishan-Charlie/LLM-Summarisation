@@ -3,7 +3,9 @@
 import pytest
 
 from fairsum.kwsum.collections import Collection
-from fairsum.kwsum.prompts import CLOSING, CONDITIONS, KEYWORD_BASE, build_prompt
+from fairsum.kwsum.prompts import (
+    CLOSING, CONDITIONS, CONTROLS, KEYWORD_BASE, build_prompt, length_target, length_targets,
+)
 
 REFER_SENTENCE = (
     "Let's first determine how many reviews out of 8 are positive, negative. "
@@ -84,6 +86,56 @@ class TestCombined:
     def test_key_oracle_is_oracle_plus_negation_keywords(self):
         p = build_prompt("key_oracle", collection(), KW)
         assert p.startswith("7 and 1 out of 8") and "no side effects" in p
+
+
+class TestControls:
+    """Amendment 9: a length-matched plain prompt and a neutral true-counts prompt."""
+
+    def test_direct_len_is_the_plain_prompt_with_a_word_target_before_the_closing_cue(self):
+        p = build_prompt("direct_len", collection(), {**KW, "target_words": 120})
+        assert p == build_prompt("direct", collection(), KW).replace(
+            CLOSING, "Write about 120 words. " + CLOSING)
+
+    def test_direct_len_without_a_target_says_what_is_missing(self):
+        with pytest.raises(KeyError, match="target_words"):
+            build_prompt("direct_len", collection(), KW)
+
+    def test_counts_neutral_is_refer_oracle_without_the_balance_instruction(self):
+        oracle = build_prompt("refer_oracle", collection(), KW)
+        neutral = build_prompt("counts_neutral", collection(), KW)
+        assert neutral.startswith("7 and 1 out of 8 are positive, negative. Reviews about")
+        assert neutral == oracle.replace(
+            ", generate a balanced summary reflecting this distribution.", ".")
+        assert "balanced" not in neutral
+
+    def test_counts_reflect_is_refer_oracle_without_the_word_balanced(self):
+        """Amendment 10: isolates the word, where counts_neutral drops the whole instruction."""
+        oracle = build_prompt("refer_oracle", collection(), KW)
+        reflect = build_prompt("counts_reflect", collection(), KW)
+        assert reflect == oracle.replace("generate a balanced summary", "generate a summary")
+        assert "balanced" not in reflect and "reflecting this distribution" in reflect
+
+    def test_controls_are_separate_from_the_nine_registered_conditions(self):
+        assert set(CONTROLS) == {"direct_len", "counts_neutral", "counts_reflect"}
+        assert not set(CONTROLS) & set(CONDITIONS)
+
+
+class TestLengthTargets:
+    def test_rounds_to_the_nearest_ten_with_a_floor_of_twenty(self):
+        assert [length_target(n) for n in (117, 114, 7, 0)] == [120, 110, 20, 20]
+
+    def test_takes_this_models_current_kw_strat_lengths_and_falls_back_to_its_median(self):
+        rows = [
+            {"model": "m", "condition": "kw_strat", "collection_id": "a", "n_words": 96, "scorer_version": "4"},
+            {"model": "m", "condition": "kw_strat", "collection_id": "b", "n_words": 151, "scorer_version": "4"},
+            {"model": "m", "condition": "kw_strat", "collection_id": "c", "n_words": 0, "scorer_version": "4"},
+            {"model": "m", "condition": "kw_strat", "collection_id": "a", "n_words": 300, "scorer_version": "3"},
+            {"model": "m", "condition": "direct", "collection_id": "a", "n_words": 40, "scorer_version": "4"},
+            {"model": "other", "condition": "kw_strat", "collection_id": "a", "n_words": 10, "scorer_version": "4"},
+        ]
+        targets, fallback = length_targets(rows, "m", scorer_version="4")
+        assert targets == {"a": 100, "b": 150}
+        assert fallback == 120  # median of 96 and 151 is 123.5
 
 
 class TestRegistry:

@@ -1,0 +1,7 @@
+{
+  "name": "kw-label-site",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" },
+  "dependencies": { "@vercel/blob": "^1.0.0" }
+}

@@ -1,0 +1,381 @@
+{
+ "created_at": "2026-10-02T04:03:04+00:00",
+ "seed": 42,
+ "summaries": [
+  {
+   "summary_id": "S01",
+   "collection_id": "amazon-test-neg88-057",
+   "model": "llama3.2-1b",
+   "condition": "cot_refer",
+   "dataset": "amazon",
+   "level": "neg88",
+   "summary": "Here's a balanced summary of the reviews:\n\n**Summary:** A mixed bag of reviews describe the Premier Value Dental Floss Unwaxed 100 Yards as having both positive and negative aspects. Some reviewers praise its affordability, availability, and effectiveness, while others criticize its poor quality, difficulty in finding unwaxed options, and tendency to break or shred during use.\n\n**Positive comments:** \n- Affordable price point\n- Available at various retailers\n- Effective in removing plaque and food particles\n\n**Negative comments:**\n- Poor quality, prone to breaking or shredding\n- Difficulty in finding unwaxed options\n- Tends to slip out of fingers\n- Shreds easily, leaving behind strings between teeth\n- Not recommended due to poor performance\n\nThis summary provides a neutral and factual representation of the reviews, highlighting both the strengths and weaknesses of the product.",
+   "sentences": [
+    "Some reviewers praise its affordability, availability, and effectiveness",
+    "others criticize its poor quality, difficulty in finding unwaxed options, and tendency to break or shred during use",
+    "Poor quality, prone to breaking or shredding",
+    "Not recommended due to poor performance"
+   ]
+  },
+  {
+   "summary_id": "S02",
+   "collection_id": "amazon-test-pos75-045",
+   "model": "mistral-7b",
+   "condition": "refer_oracle",
+   "dataset": "amazon",
+   "level": "pos75",
+   "summary": "The BUG HULL Pill Organizer 2 Times a Day Upgrade Version is generally well-received for its large compartments and ease of use, particularly for those taking multiple medications. However, some users have experienced issues with the lid not latching properly, causing pills to spill out, which can be inconvenient during travel. Additionally, the product is larger than anticipated, taking up significant counter space, and some users have reported quality concerns with the durability of the daily covers. Overall, despite these drawbacks, the organizer is praised for its functionality and convenience, making it a good choice for those who require a large capacity pill organizer.",
+   "sentences": [
+    "The BUG HULL Pill Organizer 2 Times a Day Upgrade Version is generally well-received for its large compartments and ease of use, particularly for those taking multiple medications",
+    "However, some users have experienced issues with the lid not latching properly, causing pills to spill out, which can be inconvenient during travel",
+    "Additionally, the product is larger than anticipated, taking up significant counter space, and some users have reported quality concerns with the durability of the daily covers",
+    "Overall, despite these drawbacks, the organizer is praised for its functionality and convenience, making it a good choice for those who require a large capacity pill organizer"
+   ]
+  },
+  {
+   "summary_id": "S03",
+   "collection_id": "drugs-test-neg75-002",
+   "model": "qwen2.5-7b",
+   "condition": "kw_global",
+   "dataset": "drugs",
+   "level": "neg75",
+   "summary": "The reviews for Benzonatate highlight its mixed effectiveness among users dealing with various respiratory issues. Some individuals found partial relief from their cough, particularly during nighttime, while others experienced no significant improvement or even worsening symptoms. Commonly reported side effects include dizziness, disorientation, and frequent nightmares. One user noted that the medication provided temporary relief but led to more frequent coughing episodes afterward.\n\nSeveral reviewers mentioned alternative treatments they tried, such as Tessalon Pearles, Benadryl Liquigels, Ricola Extra Strength Cough Drops, and Albuterol Inhalers, which were sometimes effective. Others turned to over-the-counter (OTC) cough medicines like Robitussin. A few users also discussed being diagnosed with conditions like bronchitis, sinus infections, and walking pneumonia, and receiving prescriptions beyond Benzonatate, such as antibiotics.\n\nOverall, the efficacy of Benzonatate appears to vary widely among users, with some finding it helpful for managing coughs associated with certain conditions, while others report little to no benefit or adverse reactions. Users are advised to consult healthcare providers before starting any new medication and to consider multiple treatment options if initial results are unsatisfactory.",
+   "sentences": [
+    "The reviews for Benzonatate highlight its mixed effectiveness among users dealing with various respiratory issues",
+    "Some individuals found partial relief from their cough, particularly during nighttime",
+    "Others turned to over-the-counter (OTC) cough medicines like Robitussin",
+    "A few users also discussed being diagnosed with conditions like bronchitis, sinus infections, and walking pneumonia, and receiving prescriptions beyond Benzonatate, such as antibiotics"
+   ]
+  },
+  {
+   "summary_id": "S04",
+   "collection_id": "amazon-test-pos88-004",
+   "model": "llama3.1-8b",
+   "condition": "direct",
+   "dataset": "amazon",
+   "level": "pos88",
+   "summary": "The reviews for the Heating Pad Neck and Shoulder Heating Pad are generally positive, with many users finding it effective for relieving pain and discomfort in their neck and shoulders. Some reviewers appreciated its soft and comfortable design, while others noted some minor drawbacks such as a potentially bulky or irritating design element. However, there were no other major complaints aside from one reviewer who experienced an issue with the product catching fire, although this may have been a one-time defect. Overall, the majority of reviewers found the product helpful and recommended it for people experiencing neck and shoulder pain.",
+   "sentences": [
+    "Some reviewers appreciated its soft and comfortable design",
+    "others noted some minor drawbacks such as a potentially bulky or irritating design element",
+    "this may have been a one-time defect",
+    "Overall, the majority of reviewers found the product helpful and recommended it for people experiencing neck and shoulder pain"
+   ]
+  },
+  {
+   "summary_id": "S05",
+   "collection_id": "drugs-test-bal-052",
+   "model": "llama3.2-1b",
+   "condition": "refer",
+   "dataset": "drugs",
+   "level": "bal",
+   "summary": "There are 9 reviews in total.\n\nHere's a balanced summary:\n\n**Positive Reviews:** \n- 4 reviewers reported significant improvements in their knee pain and mobility after receiving Synvisc injections.\n- 3 reviewers experienced some relief from pain and swelling, although the duration of relief varied.\n- 2 reviewers expressed concerns about the effectiveness of the injections and the high cost associated with them.\n\n**Negative Reviews:**\n- 4 reviewers reported severe pain, discomfort, and limited mobility due to the injections, despite taking precautions to avoid exacerbating the condition.\n- 2 reviewers experienced serious complications, including severe pain, swelling, and even hospitalization, which led to the removal of excess fluid from their knee.\n- 1 reviewer expressed extreme dissatisfaction with the treatment and vowed not to repeat the experience.\n\nThe overall tone of the reviews suggests that while some individuals may have experienced temporary relief from the injections, others were severely impacted by the procedure, leading to significant pain and long-term consequences.",
+   "sentences": [
+    "Some reviewers experienced some relief from pain and swelling",
+    "the duration of relief varied",
+    "Some reviewers experienced serious complications, including severe pain, swelling, and even hospitalization, which led to the removal of excess fluid from their knee",
+    "some individuals may have experienced temporary relief from the injections, others were severely impacted by the procedure, leading to significant pain and long-term consequences"
+   ]
+  },
+  {
+   "summary_id": "S06",
+   "collection_id": "drugs-test-pos88-036",
+   "model": "llama3.2-1b",
+   "condition": "kw_global",
+   "dataset": "drugs",
+   "level": "pos88",
+   "summary": "Here's a summary of the reviews:\n\nThe reviewers are extremely satisfied with Mirabegron, a medication used to treat overactive bladder and incontinence. They report significant improvements in their symptoms, including reduced frequency of urination, improved ability to control bowel movements, and reduced need for medical interventions like catheters or surgery.\n\nKey points from the reviews include:\n\n* Mirabegron has helped alleviate symptoms of spinal cord damage-related incontinence.\n* The medication has provided marked improvement in bladder control and bowel function.\n* Side effects reported include occasional nausea, dizziness, and fatigue, but none severe enough to warrant discontinuation.\n* A yearly prescription card may be necessary due to high costs.\n* Some reviewers have experienced side effects, such as increased heart rate and blood pressure, but these have been manageable with monitoring and adjustments to the dosage.\n* The medication has also helped reduce reliance on medical devices like poise pads and catheters.\n* One reviewer expressed disappointment that their doctor didn't initially prescribe Mirabegron, citing concerns about its availability and affordability.",
+   "sentences": [
+    "The reviewers are extremely satisfied with Mirabegron, a medication used to treat overactive bladder and incontinence",
+    "They report significant improvements in their symptoms, including reduced frequency of urination, improved ability to control bowel movements, and reduced need for medical interventions like catheters or surgery",
+    "Some reviewers have experienced side effects, such as increased heart rate and blood pressure",
+    "The medication has also helped reduce reliance on medical devices like poise pads and catheters"
+   ]
+  },
+  {
+   "summary_id": "S07",
+   "collection_id": "amazon-test-bal-024",
+   "model": "llama3.2-3b",
+   "condition": "refer",
+   "dataset": "amazon",
+   "level": "bal",
+   "summary": "Based on the provided reviews, here's a balanced summary:\n\nThe 10Pack(5Pair) Plantar Fasciitis Inserts Pads have mixed results. Some reviewers found them effective in reducing heel pain and keeping moisture in their heels, particularly those with dry heels. However, others experienced issues such as slipping, tearing, and allergic reactions. A few reviewers reported significant relief from heel pain, including those with heel spurs, after using the products for a short period. Nevertheless, some users encountered problems with the product's durability, ease of wear, and lack of clear care instructions. Overall, the effectiveness of the product varies among individuals, and more research or clearer guidelines might be needed to fully understand its benefits and limitations.",
+   "sentences": [
+    "The 10Pack(5Pair) Plantar Fasciitis Inserts Pads have mixed results",
+    "However, others experienced issues such as slipping, tearing, and allergic reactions",
+    "A few reviewers reported significant relief from heel pain, including those with heel spurs, after using the products for a short period",
+    "Nevertheless, some users encountered problems with the product's durability, ease of wear, and lack of clear care instructions"
+   ]
+  },
+  {
+   "summary_id": "S08",
+   "collection_id": "amazon-test-pos88-026",
+   "model": "llama3.2-1b",
+   "condition": "refer_oracle",
+   "dataset": "amazon",
+   "level": "pos88",
+   "summary": "Here's a balanced summary of the reviews:\n\nCHO-WA tea is a popular product that offers various benefits, including improving mood, increasing energy, and aiding in weight management. Many reviewers have reported positive experiences with the product, citing improved sleep quality, reduced allergy symptoms, and enhanced mental clarity. Some users have also mentioned that it helps with skin health and hair growth. However, some reviewers have noted potential side effects such as headaches and allergic reactions. Overall, the majority of reviewers highly recommend CHO-WA tea for its overall well-being and versatility.",
+   "sentences": [
+    "Many reviewers have reported positive experiences with the product, citing improved sleep quality, reduced allergy symptoms, and enhanced mental clarity",
+    "Some users have also mentioned that it helps with skin health and hair growth",
+    "However, some reviewers have noted potential side effects such as headaches and allergic reactions",
+    "Overall, the majority of reviewers highly recommend CHO-WA tea for its overall well-being and versatility"
+   ]
+  },
+  {
+   "summary_id": "S09",
+   "collection_id": "amazon-test-neg75-024",
+   "model": "qwen2.5-7b",
+   "condition": "key_refer",
+   "dataset": "amazon",
+   "level": "neg75",
+   "summary": "The Chem-Dry Professional Strength Spot Remover 20 Oz (2 Pack) has received mixed feedback from users. Positive reviews highlight its effectiveness in removing various types of stains, including those from puppy urine, and praise it as a \"miracle\" in a spray can. Users appreciate its ability to tackle tough spots without leaving residues.\n\nHowever, several negative reviews indicate significant issues with the product's functionality. Many customers report that the spray nozzles malfunction, releasing the contents too quickly or not at all, leading to wasted product and disappointment. Some users experienced severe damage to their carpets when using the product, resulting in costly repairs.\n\nIn summary, while some find the Chem-Dry Professional Strength Spot Remover highly effective, others face frustrating malfunctions and potential damage to their belongings, making it a polarizing product among users.",
+   "sentences": [
+    "Users appreciate its ability to tackle tough spots without leaving residues",
+    "However, several negative reviews indicate significant issues with the product's functionality",
+    "Many customers report that the spray nozzles malfunction, releasing the contents too quickly or not at all, leading to wasted product and disappointment",
+    "some find the Chem-Dry Professional Strength Spot Remover highly effective, others face frustrating malfunctions and potential damage to their belongings, making it a polarizing product among users"
+   ]
+  },
+  {
+   "summary_id": "S10",
+   "collection_id": "drugs-test-neg88-048",
+   "model": "llama3.1-8b",
+   "condition": "refer",
+   "dataset": "drugs",
+   "level": "neg88",
+   "summary": "Out of 8 reviews, 3 are positive, 5 are negative.\n\nHere's a balanced summary:\n\nTamiflu appears to have varying effectiveness in treating the flu, with some users experiencing significant relief from symptoms while others reported minimal benefits or even worsening of their condition. Common side effects include nausea, vomiting, and stomach issues, which may outweigh the potential benefits for some individuals. However, a few reviewers noted that the medication worked effectively for them, particularly when taken early in the course of the illness. Ultimately, the decision to use Tamiflu should be made in consultation with a healthcare professional, weighing the potential risks and benefits against other treatment options.",
+   "sentences": [
+    "others reported minimal benefits or even worsening of their condition",
+    "Common side effects include nausea, vomiting, and stomach issues, which may outweigh the potential benefits for some individuals",
+    "However, a few reviewers noted that the medication worked effectively for them, particularly when taken early in the course of the illness",
+    "Ultimately, the decision to use Tamiflu should be made in consultation with a healthcare professional, weighing the potential risks and benefits against other treatment options"
+   ]
+  },
+  {
+   "summary_id": "S11",
+   "collection_id": "amazon-test-neg88-006",
+   "model": "llama3.2-1b",
+   "condition": "kw_strat_neg",
+   "dataset": "amazon",
+   "level": "neg88",
+   "summary": "**Summary:** Multiple reviewers have reported negative experiences with Kandoo's Flushable Wipes for Baby and Kids, citing issues with sizing, effectiveness, and potential harm to plumbing systems. Some have experienced severe irritation, allergic reactions, and even sewage backups, leading to costly repairs. Despite efforts to return and request refunds, the company has failed to address these concerns.\n\n**Key Points:**\n\n* Multiple reviewers have reported issues with sizing, stating that the product is too small and prone to clogging.\n* Some reviewers have experienced severe irritation, allergic reactions, and sewage backups, despite using the product as directed.\n* COVID-19-related issues led to returns and requests for refunds, highlighting the company's failure to prioritize customer safety.\n* Homeowners have reported problems with their plumbing systems, including main sewer lines backing up and overflowing with waste.\n* Some reviewers have expressed disappointment with the product's performance, stating that it does not seal properly and dries out quickly.\n* One reviewer suffered a severe reaction, requiring medical attention and a doctor's visit.",
+   "sentences": [
+    "Some have experienced severe irritation, allergic reactions, and even sewage backups, leading to costly repairs",
+    "Some reviewers have experienced severe irritation, allergic reactions, and sewage backups, despite using the product as directed",
+    "COVID-19-related issues led to returns and requests for refunds, highlighting the company's failure to prioritize customer safety",
+    "Some reviewers suffered a severe reaction, requiring medical attention and a doctor's visit"
+   ]
+  },
+  {
+   "summary_id": "S12",
+   "collection_id": "drugs-test-neg88-039",
+   "model": "llama3.2-3b",
+   "condition": "direct",
+   "dataset": "drugs",
+   "level": "neg88",
+   "summary": "Here is a summary of the reviews:\n\n**Warning:** Effexor (Venlafaxine) can cause severe side effects, including withdrawal symptoms, nausea, dizziness, and changes in mood. Some users experienced a significant improvement in their mental health, while others reported no benefits.\n\n**Common side effects:** Nausea, dizziness, shakiness, dry mouth, excessive sweating, blurred vision, constipation, and increased heart rate.\n\n**Withdrawal symptoms:** Many users experienced severe withdrawal symptoms after stopping or reducing the dosage, which can be debilitating.\n\n**Positive experiences:** Some users reported improved mood, reduced anxiety, and increased energy levels after taking Effexor.\n\n**Negative experiences:** Users reported feeling like zombies, experiencing suicidal thoughts, and having a poor quality of life while taking the medication.\n\n**Precautions:** If you're considering taking Effexor, be aware of the potential risks and discuss them with your doctor. It's also recommended to carefully weigh the benefits against the potential side effects.",
+   "sentences": [
+    "Warning: Effexor (Venlafaxine) can cause severe side effects, including withdrawal symptoms, nausea, dizziness, and changes in mood",
+    "Some users experienced a significant improvement in their mental health",
+    "Common side effects: Nausea, dizziness, shakiness, dry mouth, excessive sweating, blurred vision, constipation, and increased heart rate",
+    "Some users reported improved mood, reduced anxiety, and increased energy levels after taking Effexor"
+   ]
+  },
+  {
+   "summary_id": "S13",
+   "collection_id": "drugs-test-bal-007",
+   "model": "llama3.2-3b",
+   "condition": "key_oracle",
+   "dataset": "drugs",
+   "level": "bal",
+   "summary": "**Summary of Simponi Reviews**\n\nSimponi (golimumab) has shown varying degrees of effectiveness in managing rheumatoid arthritis (RA) symptoms among patients. Many reviewers report significant improvements in their condition, achieving remission and regaining mobility and quality of life.\n\nPositive reviews highlight the medication's ability to:\n\n* Provide relief from RA symptoms, such as pain and stiffness\n* Allow patients to resume physical activities, like walking, cycling, and playing sports\n* Improve overall well-being and quality of life\n* Be effective in conjunction with other treatments, like methotrexate injections\n\nHowever, some reviewers experienced side effects, including:\n\n* Muscle spasms\n* Osteoporosis concerns\n* Increased costs, making it inaccessible to those without adequate insurance coverage\n\nNotably, some patients reported a decrease in effectiveness over time, emphasizing the need for ongoing monitoring and potential adjustments to treatment plans. Despite these challenges, many reviewers credit Simponi with transforming their lives and enabling them to manage their RA symptoms effectively.",
+   "sentences": [
+    "Many reviewers report significant improvements in their condition, achieving remission and regaining mobility and quality of life",
+    "Improve overall well-being and quality of life",
+    "Be effective in conjunction with other treatments, like methotrexate injections",
+    "Increased costs, making it inaccessible to those without adequate insurance coverage"
+   ]
+  },
+  {
+   "summary_id": "S14",
+   "collection_id": "drugs-test-bal-016",
+   "model": "llama3.2-1b",
+   "condition": "key_refer",
+   "dataset": "drugs",
+   "level": "bal",
+   "summary": "**Summary**\n\nA mixed bag of reviews about Atarax, a medication used to treat anxiety disorders. Some users report significant relief from anxiety symptoms, such as calming their emotions, reducing restlessness, and alleviating panic attacks. However, others express disappointment due to various issues, including:\n\n* Dosing concerns: Users were either underdosed or overdosed, leading to ineffective relief.\n* Side effects: Many experienced dizziness, nausea, and sleep disturbances.\n* Dependence: One user found the medication to be addictive.\n* Lack of effectiveness: Despite being prescribed for generalized anxiety disorder, some users reported limited success.\n\nThe most common complaints include:\n- Atarax not providing sufficient relief for severe anxiety\n- Benzodiazepine-like effects, despite being marketed as an alternative\n- Dizziness and sleep disturbances\n- Overdose concerns\n\nOverall, the reviews suggest that while some users find Atarax helpful, others struggle with its efficacy and potential side effects.",
+   "sentences": [
+    "A mixed bag of reviews about Atarax, a medication used to treat anxiety disorders",
+    "Side effects: Many experienced dizziness, nausea, and sleep disturbances",
+    "Dizziness and sleep disturbances",
+    "Overall, the reviews suggest that"
+   ]
+  },
+  {
+   "summary_id": "S15",
+   "collection_id": "amazon-test-neg75-055",
+   "model": "llama3.2-3b",
+   "condition": "direct",
+   "dataset": "amazon",
+   "level": "neg75",
+   "summary": "Here's a short summary of the reviews:\n\nThis product, a waterproof lotus-shaped solar-powered LED lamp, received mixed reviews from customers. Some issues reported include:\n\n- Poor instructions in multiple languages, leading to frustration and difficulty assembling.\n- Low-quality materials and construction, resulting in broken units and leaks.\n- Inconsistent performance, with some users experiencing color changes and others reporting that they stopped working after a short period.\n- Unattractive design, especially when exposed to daylight, and a tendency for the plastic compartment to fill with water.\n- Misleading packaging, with some customers receiving only one unit instead of four.\n\nHowever, some reviewers found the lamp to be aesthetically pleasing and functional, particularly when used in a garden setting. Overall, many customers expressed disappointment and frustration with the product's poor quality and lack of clear instructions.",
+   "sentences": [
+    "Inconsistent performance, with some users experiencing color changes and others reporting that they stopped working after a short period",
+    "Misleading packaging, with some customers receiving only one unit instead of four",
+    "However, some reviewers found the lamp to be aesthetically pleasing and functional, particularly when used in a garden setting",
+    "Overall, many customers expressed disappointment and frustration with the product's poor quality and lack of clear instructions"
+   ]
+  },
+  {
+   "summary_id": "S16",
+   "collection_id": "drugs-test-pos75-051",
+   "model": "mistral-7b",
+   "condition": "kw_strat",
+   "dataset": "drugs",
+   "level": "pos75",
+   "summary": "The reviewed medication is Ultracet, a combination of acetaminophen and tramadol. It has been beneficial for many individuals dealing with chronic pain conditions such as chronic ankle sprains, disabilities affecting multiple feet, herniated discs in the back, and arthritis. Users have reported significant pain relief, improved mobility, and ability to perform daily activities. However, some users have found it less effective compared to other pain medications like codeine or hydrocodone, experiencing side effects such as nausea, headaches, and lack of pain relief. It is important to note that individual responses to medications may vary, and it is crucial to consult a healthcare provider before starting any new medication regimen.",
+   "sentences": [
+    "The reviewed medication is Ultracet, a combination of acetaminophen and tramadol",
+    "Users have reported significant pain relief, improved mobility, and ability to perform daily activities",
+    "However, some users have found it less effective compared to other pain medications like codeine or hydrocodone, experiencing side effects such as nausea, headaches, and lack of pain relief",
+    "It is important to note that individual responses to medications may vary, and it is crucial to consult a healthcare provider before starting any new medication regimen"
+   ]
+  },
+  {
+   "summary_id": "S17",
+   "collection_id": "drugs-test-bal-030",
+   "model": "qwen2.5-7b",
+   "condition": "kw_strat",
+   "dataset": "drugs",
+   "level": "bal",
+   "summary": "The reviews of MiraLax highlight its effectiveness in managing various conditions related to constipation, particularly among those with autoimmune diseases, diverticulitis, and other gastrointestinal issues. Positive feedback includes its ability to work quickly and effectively, often without causing significant side effects such as bloating or gas. Users appreciate its tastelessness and ease of use, noting that it can be mixed into water without altering the taste.\n\nHowever, some users report negative experiences, including severe side effects like excessive gas and painful bowel movements that persist for extended periods. These users also note that MiraLax may not be effective for everyone, especially those who have been using it regularly for a long time. Additionally, some individuals require additional interventions, such as enemas, to fully clear their bowels when using MiraLax.\n\nOverall, while MiraLax appears to be beneficial for many, it seems to be more effective for certain conditions than others, and its efficacy can vary depending on individual tolerance levels and usage history.",
+   "sentences": [
+    "The reviews of MiraLax highlight its effectiveness in managing various conditions related to constipation, particularly among those with autoimmune diseases, diverticulitis, and other gastrointestinal issues",
+    "Positive feedback includes its ability to work quickly and effectively, often without causing significant side effects such as bloating or gas",
+    "Users appreciate its tastelessness and ease of use, noting that it can be mixed into water without altering the taste",
+    "MiraLax appears to be beneficial for many, it seems to be more effective for certain conditions than others, and its efficacy can vary depending on individual tolerance levels and usage history"
+   ]
+  },
+  {
+   "summary_id": "S18",
+   "collection_id": "amazon-test-pos88-028",
+   "model": "llama3.1-8b",
+   "condition": "key_oracle",
+   "dataset": "amazon",
+   "level": "pos88",
+   "summary": "**Overall Rating:** 4.5/5 stars\n\n**Summary:** The Can You Handlebar Mens Beard Balm Application Brush receives overwhelmingly positive feedback from customers. Many reviewers praise its effectiveness in smoothing out beard hairs, providing a well-groomed appearance, and holding scents from various oils. The brush's comfort, quality, and compact design also receive compliments. However, some users experience issues with bristles falling out, chemical odors, and concerns about germs building up.\n\n**Key Takeaways:**\n\n*   Positive aspects include:\n    *   Effective at smoothing out beard hairs\n    *   Comfortable and compact design\n    *   High-quality materials\n    *   Holds scents from various oils\n    *   Good customer service from Can You Handlebar.com\n*   Negative aspects include:\n    *   Some users experienced bristle shedding\n    *   Chemical odors detected upon initial use\n    *   Concerns about germ buildup\n\n**Recommendation:** Based on the overall positive feedback, we recommend the Can You Handlebar Mens Beard Balm Application Brush for those looking for a reliable and effective beard grooming tool. However, potential buyers should be aware of the possibility of bristle shedding and take necessary precautions to prevent germ buildup.",
+   "sentences": [
+    "Many reviewers praise its effectiveness in smoothing out beard hairs, providing a well-groomed appearance, and holding scents from various oils",
+    "However, some users experience issues with bristles falling out, chemical odors, and concerns about germs building up",
+    "Comfortable and compact design",
+    "Chemical odors detected upon initial use"
+   ]
+  },
+  {
+   "summary_id": "S19",
+   "collection_id": "drugs-test-pos75-008",
+   "model": "mistral-7b",
+   "condition": "kw_strat_neg",
+   "dataset": "drugs",
+   "level": "pos75",
+   "summary": "The reviewed medications, primarily Antabuse, have shown positive results in helping individuals achieve and maintain sobriety. Many users have reported a significant reduction in cravings and urges to drink, with some experiencing complete abstinence. Some users have found traditional methods such as Alcoholics Anonymous (AA) less effective for them, preferring alternative treatments like Antabuse.\n\nAntabuse is particularly praised for its effectiveness, with some users noting that it eliminates the option to drink altogether due to unpleasant symptoms triggered by alcohol consumption. However, it's important to note that some users have experienced side effects such as nausea and headaches.\n\nSome users have found success after multiple attempts at quitting, including various therapies and rehabilitation programs. A common recommendation is to have someone else administer the medication to ensure compliance and accountability.\n\nIn contrast, some users have found success with AA, emphasizing the importance of honesty and a strong spiritual foundation for their sobriety.\n\nOverall, these reviews suggest that there is no one-size-fits-all solution for alcohol dependency, and finding the right approach may require experimentation and persistence.",
+   "sentences": [
+    "The reviewed medications, primarily Antabuse, have shown positive results in helping individuals achieve and maintain sobriety",
+    "Many users have reported a significant reduction in cravings and urges to drink, with some experiencing complete abstinence",
+    "In contrast, some users have found success with AA, emphasizing the importance of honesty and a strong spiritual foundation for their sobriety",
+    "Overall, these reviews suggest that there is no one-size-fits-all solution for alcohol dependency, and finding the right approach may require experimentation and persistence"
+   ]
+  },
+  {
+   "summary_id": "S20",
+   "collection_id": "drugs-test-neg75-056",
+   "model": "llama3.2-3b",
+   "condition": "key_refer",
+   "dataset": "drugs",
+   "level": "neg75",
+   "summary": "Here's a balanced summary of the reviews:\n\nKariva, a popular birth control pill, has received mixed reviews from users. While some women praise its effectiveness in regulating their periods and reducing symptoms such as acne and migraines, others experience significant side effects like weight gain, bad mood swings, and decreased libido.\n\nPositive reviews highlight the pill's ability to provide predictable periods, reduce acne, and alleviate migraines. Some users report minimal side effects, while others appreciate the convenience of a lighter discharge. However, a few reviewers note that the pill may lead to breakthrough bleeding and mood changes.\n\nNegative reviews express concerns about the pill's impact on mental health, with some experiencing depression, anxiety, and irritability. Others report weight gain, particularly noticeable in the first few months of use. A few users also mention that the pill affects their sex drive, leading to feelings of frustration and disappointment.\n\nIt's essential to weigh these pros and cons when considering Kariva as a birth control option. As with any medication, individual results may vary, and it's crucial to discuss potential risks and benefits with a healthcare provider before starting treatment.",
+   "sentences": [
+    "Some users report minimal side effects",
+    "others appreciate the convenience of a lighter discharge",
+    "However, a few reviewers note that the pill may lead to breakthrough bleeding and mood changes",
+    "A few users also mention that the pill affects their sex drive, leading to feelings of frustration and disappointment"
+   ]
+  },
+  {
+   "summary_id": "S21",
+   "collection_id": "amazon-test-pos75-051",
+   "model": "mistral-7b",
+   "condition": "kw_strat",
+   "dataset": "amazon",
+   "level": "pos75",
+   "summary": "The reviewed product is a portable 16oz Vortex Mixer, USB Rechargeable Mini Shaker, also known as a Self-Stirring Mug or Electric Hurricane Shaker Cup. It is designed for mixing various powdered substances such as protein shake powders, amino acids, and keto lemonades.\n\nPositive reviews highlight its effectiveness in preventing grainy or gritty textures, quick mixing, long battery life, and convenient features like a built-in cup mat and a carrying pouch. Some users appreciate its ability to handle acidic substances without corroding. However, there were concerns about the product melting after a short charging period, the lack of a cleaning brush as advertised, and the requirement for the product to be plugged in to function. Additionally, some users reported issues with parts breaking during cleaning or upon receiving the product.",
+   "sentences": [
+    "The reviewed product is a portable 16oz Vortex Mixer, USB Rechargeable Mini Shaker, also known as a Self-Stirring Mug or Electric Hurricane Shaker Cup",
+    "Positive reviews highlight its effectiveness in preventing grainy or gritty textures, quick mixing, long battery life, and convenient features like a built-in cup mat and a carrying pouch",
+    "Some users appreciate its ability to handle acidic substances without corroding",
+    "However, there were concerns about the product melting after a short charging period, the lack of a cleaning brush as advertised, and the requirement for the product to be plugged in to function"
+   ]
+  },
+  {
+   "summary_id": "S22",
+   "collection_id": "amazon-test-pos88-002",
+   "model": "qwen2.5-7b",
+   "condition": "key_oracle",
+   "dataset": "amazon",
+   "level": "pos88",
+   "summary": "The reviews for Genuine Shilajit Resin show a mixed but generally positive reception. Most users find the product effective, particularly noting improvements in energy levels, better absorption of nutrients, and relief from pollen allergies. Some customers also appreciate its affordability and recommend combining it with humic minerals for enhanced benefits. However, a few reviewers experienced adverse reactions such as skin issues and heartburn, leading them to discontinue use. Overall, while there are both positive and negative experiences, many users find the product valuable for general wellness and improved health outcomes.",
+   "sentences": [
+    "generally positive reception",
+    "Some customers also appreciate its affordability and recommend combining it with humic minerals for enhanced benefits",
+    "However, a few reviewers experienced adverse reactions such as skin issues and heartburn, leading them to discontinue use",
+    "there are both positive and negative experiences, many users find the product valuable for general wellness and improved health outcomes"
+   ]
+  },
+  {
+   "summary_id": "S23",
+   "collection_id": "drugs-test-neg88-029",
+   "model": "llama3.1-8b",
+   "condition": "cot_refer",
+   "dataset": "drugs",
+   "level": "neg88",
+   "summary": "Based on the provided reviews, it appears that out of 8 reviews:\n\n- 6 reviews are negative (reviewers experienced severe burning, itching, and discomfort)\n- 2 reviews are somewhat positive (one reviewer experienced mild discomfort, but found relief, while the other reviewer had a relatively good experience)\n\nHere's a balanced summary reflecting the frequency of these opinions:\n\n\"Monistat 3-Day Combination Pack has received mixed reviews from users. While some reviewers reported mild discomfort and relief from yeast infection symptoms, others experienced severe burning, itching, and discomfort, leading them to discontinue use. It's essential to weigh the potential benefits against the risks and consider individual tolerance when deciding whether to try this product.\"",
+   "sentences": [
+    "Some reviews are negative (reviewers experienced severe burning, itching, and discomfort)",
+    "Some reviews are somewhat positive (some reviewers experienced mild discomfort",
+    "the other reviewer had a relatively good experience)",
+    "It's essential to weigh the potential benefits against the risks and consider individual tolerance when deciding whether to try this product.\""
+   ]
+  },
+  {
+   "summary_id": "S24",
+   "collection_id": "amazon-test-neg75-010",
+   "model": "qwen2.5-7b",
+   "condition": "cot_refer",
+   "dataset": "amazon",
+   "level": "neg75",
+   "summary": "Based on the provided reviews, here is a summary of the key points:\n\nOut of 8 reviews, there appear to be 2 positive reviews, 1 mixed review, and 5 negative or critical reviews.\n\n**Negative/Critical Reviews:**\n- Issues with breathability, causing discomfort.\n- Fabric tearing and becoming brittle after washing.\n- Masks being too large and difficult to wear comfortably.\n- Quality control issues leading to unraveled edges and poor fit.\n- Shrinkage affecting the sizing and overall fit.\n- Poor construction with uneven ear loops and loose stitching.\n\n**Positive/Mixed Reviews:**\n- Some positives noted such as good printing quality and adequate thickness for breathability.\n- A couple of users found the masks durable without breaking easily.\n- Positive comments about the initial fit and comfort for some users.\n\nIn summary, while some customers find the masks comfortable and well-printed, others experience significant issues with durability, fit, and breathability. The quality varies widely, and buyers should consider their specific needs before purchasing.",
+   "sentences": [
+    "Masks being too large and difficult to wear comfortably",
+    "Shrinkage affecting the sizing and overall fit",
+    "Poor construction with uneven ear loops and loose stitching",
+    "Some positives noted such as good printing quality and adequate thickness for breathability"
+   ]
+  },
+  {
+   "summary_id": "S25",
+   "collection_id": "drugs-test-pos75-010",
+   "model": "mistral-7b",
+   "condition": "kw_global",
+   "dataset": "drugs",
+   "level": "pos75",
+   "summary": "Metformin, often used as a diet pill for type 2 diabetes management, shows promising results in aiding weight loss and controlling blood sugar levels. Many users report reduced symptoms such as diarrhea and bloating within a few months, particularly when using extended-release tablets and adhering to a low-carb diet. However, it's important to note that falling off the diet or overeating carbs may cause these symptoms to reoccur. Some individuals may experience mild side effects like cramps and diarrhea initially, but these usually subside within a week. Non-diabetics might also find benefits from using metformin for weight loss. As with any medication, it's crucial to consult a healthcare provider if experiencing unusual symptoms or discomfort. Overall, metformin is considered a great tool for gradual, safe, and permanent weight loss, with numerous positive reviews from users who've experienced significant weight reduction over several years.",
+   "sentences": [
+    "Many users report reduced symptoms such as diarrhea and bloating within a few months, particularly when using extended-release tablets and adhering to a low-carb diet",
+    "However, it's important to note that falling off the diet or overeating carbs may cause these symptoms to reoccur",
+    "Some individuals may experience mild side effects like cramps and diarrhea initially",
+    "As with any medication, it's crucial to consult a healthcare provider if experiencing unusual symptoms or discomfort"
+   ]
+  }
+ ]
+}

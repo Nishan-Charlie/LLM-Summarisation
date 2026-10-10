@@ -1,0 +1,6 @@
+lib/core.test.js
+build_data.py
+data/
+node_modules/
+.env*
+.vercel/

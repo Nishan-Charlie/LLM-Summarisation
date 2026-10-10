@@ -1,0 +1,40 @@
+{
+  "complete_models": [
+    "llama3.1-8b",
+    "llama3.2-1b",
+    "llama3.2-3b",
+    "mistral-7b",
+    "qwen2.5-7b"
+  ],
+  "complete_by_condition": {
+    "direct_len": [
+      "llama3.1-8b",
+      "llama3.2-1b",
+      "llama3.2-3b",
+      "mistral-7b",
+      "qwen2.5-7b"
+    ],
+    "counts_neutral": [
+      "llama3.1-8b",
+      "llama3.2-1b",
+      "llama3.2-3b",
+      "mistral-7b",
+      "qwen2.5-7b"
+    ],
+    "counts_reflect": [
+      "llama3.1-8b",
+      "llama3.2-1b",
+      "llama3.2-3b",
+      "mistral-7b",
+      "qwen2.5-7b"
+    ]
+  },
+  "expected_per_condition": 600,
+  "rows_per_model": {
+    "llama3.1-8b": 1800,
+    "llama3.2-1b": 1800,
+    "llama3.2-3b": 1800,
+    "mistral-7b": 1800,
+    "qwen2.5-7b": 1800
+  }
+}

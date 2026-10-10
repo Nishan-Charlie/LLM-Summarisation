@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fairsum.kwsum.collections import LEVELS
-from fairsum.kwsum.prompts import CONDITIONS
+from fairsum.kwsum.prompts import ALL_CONDITIONS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = REPO_ROOT / "data" / "kw"
@@ -58,6 +58,8 @@ class RunConfig:
     models: tuple[ModelSpec, ...]
     #: 3-class model used only to decide neutral vs opinion; None = sentiment_model alone.
     neutral_model: str | None = None
+    #: Run whose scored kw_strat lengths set direct_len's word targets (amendment 9).
+    length_reference_run: str | None = None
 
     def model(self, name: str) -> ModelSpec:
         for spec in self.models:
@@ -101,7 +103,7 @@ def load_config(path: str | Path) -> RunConfig:
         k=int(kw["k"]),
         diversity=float(kw["diversity"]),
         embedder=kw["embedder"],
-        conditions=_check(gen["conditions"], CONDITIONS, "condition"),
+        conditions=_check(gen["conditions"], ALL_CONDITIONS, "condition"),
         max_new_tokens=int(gen["max_new_tokens"]),
         repetition_penalty=float(gen["repetition_penalty"]),
         batch_size=int(gen["batch_size"]),
@@ -110,4 +112,5 @@ def load_config(path: str | Path) -> RunConfig:
         threshold=float(sc["threshold"]),
         models=models,
         neutral_model=sc.get("neutral_model"),
+        length_reference_run=gen.get("length_reference_run"),
     )

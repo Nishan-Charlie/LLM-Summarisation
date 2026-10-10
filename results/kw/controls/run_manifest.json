@@ -1,0 +1,18 @@
+{
+  "created_at": "2026-10-02T18:31:23+00:00",
+  "identity": {
+    "collections_sha256": "508735a62c638dc921bade8258a0c10eb3701366ef81bc268f40ad6c81710058",
+    "keywords_sha256": "11031148ed8765b46e185fcf62db7ce9c7554ead00ba9f0c29b5caef1c810f6d"
+  },
+  "info": {
+    "torch": "2.6.0+cu124",
+    "transformers": "5.2.0",
+    "bitsandbytes": "0.49.2",
+    "spacy": "3.8.14",
+    "sentence-transformers": "5.3.0",
+    "scikit-learn": "1.7.0",
+    "huggingface_hub": "1.17.0",
+    "max_new_tokens": 256,
+    "repetition_penalty": 1.1
+  }
+}

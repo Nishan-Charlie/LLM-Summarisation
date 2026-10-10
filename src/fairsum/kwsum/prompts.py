@@ -49,6 +49,11 @@ def oracle_prefix(c: Collection) -> str:
     )
 
 
+def neutral_counts(c: Collection) -> str:
+    """REFER-oracle's true counts, without its instruction to write a balanced summary."""
+    return f"{c.n_pos} and {c.n_neg} out of {len(c.texts)} are {VALUES}."
+
+
 def global_guidance(phrases: Sequence[str]) -> str:
     return f"Consider including the following keywords: {', '.join(phrases)}."
 
@@ -109,6 +114,56 @@ CONDITIONS: dict[str, Callable[[Collection, Mapping], str]] = {
     "key_oracle": _key_oracle,
 }
 
+def _direct_len(c: Collection, kw: Mapping) -> str:
+    if "target_words" not in kw:
+        raise KeyError("direct_len needs kw['target_words'], the length-matched word target")
+    return direct_prompt(c, f"Write about {kw['target_words']} words.")
+
+
+def _counts_neutral(c: Collection, kw: Mapping) -> str:
+    return f"{neutral_counts(c)} {direct_prompt(c)}"
+
+
+def _counts_reflect(c: Collection, kw: Mapping) -> str:
+    """Amendment 10: refer_oracle with only the word "balanced" removed."""
+    return (f"{c.n_pos} and {c.n_neg} out of {len(c.texts)} are {VALUES}, "
+            f"generate a summary reflecting this distribution. {direct_prompt(c)}")
+
+
+#: Amendment 9 controls, kept apart from the nine registered conditions. direct_len matches
+#: kw_strat's length on the same collection; counts_neutral is refer_oracle minus "balanced".
+CONTROLS: dict[str, Callable[[Collection, Mapping], str]] = {
+    "direct_len": _direct_len,
+    "counts_neutral": _counts_neutral,
+    "counts_reflect": _counts_reflect,
+}
+ALL_CONDITIONS = {**CONDITIONS, **CONTROLS}
+LENGTH_REFERENCE = {"direct_len": "kw_strat"}
+
+
+def length_target(n_words: float) -> int:
+    """A word target rounded to the nearest ten, never below twenty."""
+    return max(20, int(round(n_words / 10.0)) * 10)
+
+
+def length_targets(rows, model: str, condition: str = "kw_strat",
+                   scorer_version: str | None = None) -> tuple[dict[str, int], int]:
+    """Per-collection word targets from one model's reference summaries, plus the model's
+    median target for collections whose reference produced no summary."""
+    lengths = {
+        r["collection_id"]: r["n_words"] for r in rows
+        if r["model"] == model and r["condition"] == condition
+        and (scorer_version is None or str(r.get("scorer_version")) == str(scorer_version))
+        and r.get("n_words")
+    }
+    if not lengths:
+        raise ValueError(f"no {condition} lengths for {model!r} to match against")
+    ordered = sorted(lengths.values())
+    mid = len(ordered) // 2
+    median = ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
+    return {cid: length_target(n) for cid, n in lengths.items()}, length_target(median)
+
+
 #: The plain keyword set each keyword condition is measured against for uptake.
 #: strat_neg shares strat's phrases, so its uptake uses them too (comparability).
 KEYWORD_BASE: dict[str, str] = {
@@ -122,7 +177,7 @@ KEYWORD_BASE: dict[str, str] = {
 
 def build_prompt(condition: str, collection: Collection, keywords: Mapping) -> str:
     try:
-        builder = CONDITIONS[condition]
+        builder = ALL_CONDITIONS[condition]
     except KeyError:
-        raise KeyError(f"unknown condition {condition!r}; known: {sorted(CONDITIONS)}") from None
+        raise KeyError(f"unknown condition {condition!r}; known: {sorted(ALL_CONDITIONS)}") from None
     return builder(collection, keywords)
