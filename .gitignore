@@ -32,15 +32,14 @@ Papers/
 # Zip bundles of files that are already in the repo
 *.zip
 
-# LaTeX build files for the paper (main.pdf and generated/ are kept)
-paper/*.aux
-paper/*.log
-paper/*.fls
-paper/*.fdb_latexmk
-paper/*.out
-paper/*.blg
-paper/*.spl
-paper/*.synctex.gz
+# Paper draft (LaTeX source, figures, build output): not part of the code release.
+# scripts/kw_paper_assets.py still writes its tables and figures here.
+/paper/
+
+# Local assistant tooling: editor/agent settings and agent planning notes.
+# The study design and its amendments are kept in docs/design/.
+/.claude/
+/docs/superpowers/
 
 # Secrets: API keys belong in environment variables, never in the repo
 apiKeys.txt

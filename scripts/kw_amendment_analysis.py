@@ -1,4 +1,4 @@
-"""Amendment 9 analyses (docs/superpowers/specs/2026-10-02-kw-amendment-9.md).
+"""Amendment 9 analyses (docs/design/2026-10-02-kw-amendment-9.md).
 
     python scripts/kw_amendment_analysis.py --config configs/kw_week1.toml --controls configs/kw_controls.toml
 

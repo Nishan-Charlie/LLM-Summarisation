@@ -1,5 +1,5 @@
 # Keyword prompting under imbalance: week-1 run.
-# Spec: docs/superpowers/specs/2026-09-28-keyword-prompting-design.md
+# Spec: docs/design/2026-09-28-keyword-prompting-design.md
 run_id = "week1"
 seed = 42
 

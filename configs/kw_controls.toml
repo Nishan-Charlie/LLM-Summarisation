@@ -1,7 +1,7 @@
-# Amendment 9 controls (docs/superpowers/specs/2026-10-02-kw-amendment-9.md): the week-1 run
+# Amendment 9 controls (docs/design/2026-10-02-kw-amendment-9.md): the week-1 run
 # with only the two control prompts. Same collections, keywords, decoding, scorer and models;
 # results go to results/kw/controls/ so the registered week-1 tables stay as they are.
-# Spec: docs/superpowers/specs/2026-09-28-keyword-prompting-design.md
+# Spec: docs/design/2026-09-28-keyword-prompting-design.md
 run_id = "controls"
 seed = 42
 
