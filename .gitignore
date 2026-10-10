@@ -18,6 +18,20 @@ data/kw/pools/
 # Extra datasets: licences forbid redistribution; rebuild with scripts/kw_download_external.py
 data/external/
 
+# Keyword study: raw model outputs and per-summary scores (tens of MB each, grow with every run).
+# The tables and figures built from them are kept.
+results/kw/**/generations.jsonl
+results/kw/**/scores.jsonl
+# Run logs from scripts/kw_run_queue.ps1
+results/kw/**/*.log
+results/kw/**/*.log.err
+
+# Reference papers: third-party PDFs, not ours to redistribute (~47 MB)
+Papers/
+
+# Zip bundles of files that are already in the repo
+*.zip
+
 # LaTeX build files for the paper (main.pdf and generated/ are kept)
 paper/*.aux
 paper/*.log
