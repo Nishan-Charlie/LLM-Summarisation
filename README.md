@@ -224,6 +224,23 @@ accounts that the analysis does not use). `check` writes the agreement figures, 
 bootstrap interval over statements, to `results/kw/week1/tables/human_check.csv` and
 `results/kw/week1/human_check.json`.
 
+**Part B** judges whole summaries. Each of 80 one-sided review sets is shown with its `direct` and
+its `kw_strat` summary, as A and B in random order. Annotators first say, from each summary alone,
+how the reviewers feel overall. Then they see the reviews, grouped by rating, and judge how much of
+the minority's view each summary conveys, whether it says anything no review supports, and how easy
+it is to read. Two pairs of annotators each label 35 sets plus 10 shared ones, on the page at
+`/partb/` of the same site.
+
+```bash
+python scripts/kw_human_partb.py make      --config configs/kw_week1.toml   # draw the 80 sets
+python scripts/kw_human_partb.py site-data --config configs/kw_week1.toml --pair1 <a> <b> --pair2 <c> <d>
+python scripts/kw_human_partb.py check     --config configs/kw_week1.toml --labels <export.json>
+```
+
+`site-data` writes the page's data (load it through `PUT /api/b/seed`), and `check` reads the
+page's export (`GET /api/b/export`). The details fixed before any Part B label are in
+[docs/design/2026-10-30-kw-partb-analysis.md](docs/design/2026-10-30-kw-partb-analysis.md).
+
 ## Design record
 
 | Document | Date | Content |
@@ -231,6 +248,7 @@ bootstrap interval over statements, to `results/kw/week1/tables/human_check.csv`
 | [Design](docs/design/2026-09-28-keyword-prompting-design.md) | 2026-09-28 | claim, hypotheses H1–H4, data, conditions, metrics, models, decision rules |
 | [Amendment 9](docs/design/2026-10-02-kw-amendment-9.md) | 2026-10-02 | two control prompts, entity-clustered inference, whole-summary human evaluation |
 | [Amendment 10](docs/design/2026-10-05-kw-amendment-10.md) | 2026-10-05 | a third control prompt, an absolute-distortion check, human-evaluation fixes |
+| [Part B details](docs/design/2026-10-30-kw-partb-analysis.md) | 2026-10-30 | sample, page, aggregation and decision rules for Part B, fixed before any Part B label |
 
 Earlier amendments are recorded inside the design document. Each amendment states what was already
 known when it was written and what had not yet been generated or labelled.

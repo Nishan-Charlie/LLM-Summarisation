@@ -216,7 +216,14 @@ fieldset[disabled] label { cursor: default; }
   const store = { get: (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } },
                   set: (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} },
                   del: (k) => { try { localStorage.removeItem(k); } catch (_) {} } };
-  S.token = store.get("rsc-token");  // the same sign-in as Part A's page
+  // The same sign-in as Part A's page. A personal link (?t=<token>) still works: keep it and take it
+  // out of the address bar.
+  (function readToken() {
+    const url = new URL(location.href);
+    const t = url.searchParams.get("t");
+    if (t) { S.token = t; store.set("rsc-token", t); url.searchParams.delete("t"); history.replaceState(null, "", url.pathname + url.search + url.hash); }
+    else S.token = store.get("rsc-token");
+  })();
 
   async function api(path, opts = {}) {
     const r = await fetch(path, { ...opts, headers: { "content-type": "application/json", "x-annotator-token": S.token || "", ...(opts.headers || {}) } });
