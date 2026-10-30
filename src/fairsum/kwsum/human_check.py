@@ -427,6 +427,91 @@ def compare(a: Mapping[str, str | None], b: Mapping[str, str | None]) -> Agreeme
     )
 
 
+def _alpha_of(pairs: Sequence[tuple[object, object]]) -> float:
+    # One unit per position, so a statement drawn twice in a resample counts twice.
+    return krippendorff_alpha({str(k): [x, y] for k, (x, y) in enumerate(pairs)})
+
+
+def _interval(values: Sequence[float]) -> tuple[float, float]:
+    finite = [v for v in values if v == v]
+    if not finite:
+        return math.nan, math.nan
+    lo, hi = np.percentile(finite, [2.5, 97.5])
+    return float(lo), float(hi)
+
+
+def bootstrap_agreement(a: Mapping[str, str | None], b: Mapping[str, str | None],
+                        n_boot: int = 2000, seed: int = 0) -> dict:
+    """95% bootstrap intervals for `compare`'s accuracy and alpha, resampling statements
+    (amendment 10, section 3). A resample in which every label is the same has no alpha; it is
+    left out of the alpha interval, and `n_alpha` says how many resamples remained."""
+    ids = sorted(i for i in set(a) & set(b) if a[i] is not None and b[i] is not None)
+    if not ids:
+        return {"n": 0, "acc_lo": math.nan, "acc_hi": math.nan,
+                "alpha_lo": math.nan, "alpha_hi": math.nan, "n_alpha": 0}
+    pairs = [(a[i], b[i]) for i in ids]
+    rng = np.random.default_rng(seed)
+    accs, alphas = [], []
+    for _ in range(n_boot):
+        draw = [pairs[k] for k in rng.integers(0, len(pairs), len(pairs))]
+        accs.append(float(np.mean([x == y for x, y in draw])))
+        alphas.append(_alpha_of(draw))
+    acc_lo, acc_hi = _interval(accs)
+    alpha_lo, alpha_hi = _interval(alphas)
+    return {"n": len(ids), "acc_lo": acc_lo, "acc_hi": acc_hi, "alpha_lo": alpha_lo,
+            "alpha_hi": alpha_hi, "n_alpha": sum(x == x for x in alphas)}
+
+
+def alpha_gain(human: Mapping[str, str | None], first: Mapping[str, str | None],
+               second: Mapping[str, str | None], n_boot: int = 2000, seed: int = 0) -> dict:
+    """alpha(human, second) - alpha(human, first) on the statements all three label, with a 95%
+    interval from resampling statements; both alphas are computed on the same resample.
+
+    This is the registered choice between the faithfulness checks (as written = first,
+    de-attributed = second): amendment 10 asks whether the interval excludes zero."""
+    ids = sorted(i for i in human if human[i] is not None
+                 and first.get(i) is not None and second.get(i) is not None)
+    if not ids:
+        return {"n": 0, "diff": math.nan, "ci_lo": math.nan, "ci_hi": math.nan,
+                "excludes_zero": False}
+
+    def gain(draw: Sequence[str]) -> float:
+        return (_alpha_of([(human[i], second[i]) for i in draw])
+                - _alpha_of([(human[i], first[i]) for i in draw]))
+
+    rng = np.random.default_rng(seed)
+    lo, hi = _interval([gain([ids[k] for k in rng.integers(0, len(ids), len(ids))])
+                        for _ in range(n_boot)])
+    return {"n": len(ids), "diff": gain(ids), "ci_lo": lo, "ci_hi": hi,
+            "excludes_zero": bool(lo > 0 or hi < 0)}
+
+
+def polar_error(human: Mapping[str, str | None], scorer: Mapping[str, str | None],
+                n_boot: int = 2000, seed: int = 0) -> dict:
+    """How often the classifier flips the polarity of a summary statement: among statements that
+    people and the classifier both call positive or negative, the share where they disagree.
+
+    This is the error rate `stats.ma_from_misclassification` takes, measured on summary
+    statements instead of reviews. Under symmetric error, a majority gap beyond that envelope is
+    one that stays below zero after a Rogan-Gladen correction."""
+    polar = ("positive", "negative")
+    ids = sorted(i for i in human if human[i] in polar and scorer.get(i) in polar)
+    if not ids:
+        return {"n": 0, "error": math.nan, "ci_lo": math.nan, "ci_hi": math.nan,
+                "pos_as_neg": math.nan, "neg_as_pos": math.nan}
+    flips = np.array([human[i] != scorer[i] for i in ids], dtype=float)
+
+    def rate(side: str) -> float:
+        own = [human[i] != scorer[i] for i in ids if human[i] == side]
+        return float(np.mean(own)) if own else math.nan
+
+    rng = np.random.default_rng(seed)
+    lo, hi = _interval([float(flips[rng.integers(0, len(ids), len(ids))].mean())
+                        for _ in range(n_boot)])
+    return {"n": len(ids), "error": float(flips.mean()), "ci_lo": lo, "ci_hi": hi,
+            "pos_as_neg": rate("positive"), "neg_as_pos": rate("negative")}
+
+
 def unsupported_rate_gap(human_support: Mapping[str, str], scorer_support: Mapping[str, str],
                          n_boot: int = 2000, seed: int = 0) -> dict:
     """Scorer minus human unsupported rate, with a bootstrap CI that resamples whole summaries.

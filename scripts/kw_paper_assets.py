@@ -1206,17 +1206,176 @@ def fig_wordcloud(counts: Counter) -> None:
     plt.close(fig)
 
 
+def human_verdict(alpha: float) -> str:
+    """The reading of alpha fixed before any label (method section), on the unrounded value."""
+    if alpha != alpha:
+        return "--"
+    return "good" if alpha >= 0.80 else "acceptable" if alpha >= 0.667 else "exploratory"
+
+
+def fmt_range(values: list[float], digits: int = 2, percent: bool = False) -> str:
+    """Two annotators' values as one number when they round alike, else "x to y"."""
+    texts = sorted({fmt(v, digits, percent=percent) for v in values}, key=lambda t: float(
+        t.replace("$-$", "-").replace(r"\%", "")))
+    return texts[0] if len(texts) == 1 else f"{texts[0]} to {texts[-1]}"
+
+
+# Part A rows of results/kw/<run>/tables/human_check.csv: (label in the csv, macro slug, reader name).
+HUMAN_BETWEEN = [("claim", "claim", "Claim or not"),
+                 ("sentiment (4 classes)", "sent", "Sentiment (4 classes)"),
+                 ("support (3 classes)", "sup3", "Support (3 classes)"),
+                 ("support (supported vs not)", "sup2", "Support (supported vs not)")]
+HUMAN_VS_SCORER = [("sentiment (hybrid, 3 classes)", "sent", "Sentiment, main classifier"),
+                   ("sentiment (polarity model, human-polar items)", "pol",
+                    "Sentiment, alternative classifier$^{b}$"),
+                   ("support as written (supported vs not)", "supreg", "Faithfulness, planned check"),
+                   ("support de-attributed (supported vs not)", "supd", "Faithfulness, corrected check"),
+                   ("support as written (3 classes)", "supreg3", "Faithfulness, planned (3 classes)"),
+                   ("support de-attributed (3 classes)", "supd3", "Faithfulness, corrected (3 classes)")]
+
+
 def human_check_numbers(cfg, V: dict) -> None:
+    """Part A of the human evaluation: agreement with 95% intervals (amendment 10), the registered
+    choice of faithfulness check, unsupported rates, and the classifier's error on summary
+    statements. Annotators are called A and B in the order `kw_human_check.py check` ran them."""
     path = cfg.results_dir / "human_check.json"
     V["human-check-done"] = "yes" if path.exists() else "no"
     if not path.exists():
         return
     report = json.loads(path.read_text(encoding="utf-8"))
-    choice = report.get("primary_faithfulness", {})
-    if choice:
-        V["human-primary"] = choice["choice"]
-        V["human-alpha-reg"] = fmt(choice["alpha_as_written"])
-        V["human-alpha-deattr"] = fmt(choice["alpha_deattr"])
+    rows = pd.read_csv(cfg.results_dir / "tables" / "human_check.csv")
+    names = report["annotators"]
+    letters = dict(zip(names, "ab"))
+    V["human-n"] = str(report[names[0]]["n"])
+    V["human-n-summaries"] = str(report[names[0]]["unsupported_gap"]["as written"]["n_summaries"])
+
+    def row(comparison: str, label: str) -> pd.Series:
+        hit = rows[(rows["comparison"] == comparison) & (rows["label"] == label)]
+        if len(hit) != 1:
+            raise SystemExit(f"human_check.csv: expected one row for {comparison!r} / {label!r}")
+        return hit.iloc[0]
+
+    def ci(r: pd.Series) -> str:
+        return f"{fmt(r['alpha'], 2)} [{fmt(r['alpha_lo'], 2)}, {fmt(r['alpha_hi'], 2)}]"
+
+    borderline: list[str] = []
+
+    def table_ci(r: pd.Series) -> str:
+        """`ci`, marked when rounding puts alpha on the other side of a threshold than its reading."""
+        shown = float(fmt(r["alpha"], 2).replace("$-$", "-"))
+        if human_verdict(shown) != human_verdict(r["alpha"]):
+            borderline.append(fmt(r["alpha"], 4))
+            return ci(r).replace(" [", "$^{c}$ [", 1)
+        return ci(r)
+
+    between = f"{names[0]} vs {names[1]}"
+    for label, slug, _ in HUMAN_BETWEEN:
+        r = row(between, label)
+        V[f"human-ab-{slug}"] = fmt(r["alpha"], 2)
+        V[f"human-ab-{slug}-exact"] = fmt(r["alpha"], 3)  # for values next to a threshold
+        V[f"human-ab-{slug}-ci"] = ci(r)
+        V[f"human-ab-{slug}-acc"] = fmt(r["accuracy"], 0, percent=True)
+        V[f"human-ab-{slug}-n"] = str(int(r["n"]))
+    for label, slug, _ in HUMAN_VS_SCORER:
+        alphas = []
+        for name in names:
+            r = row(f"{name} vs scorer", label)
+            alphas.append(r["alpha"])
+            V[f"human-{letters[name]}-{slug}-ci"] = ci(r)
+            V[f"human-{letters[name]}-{slug}-exact"] = fmt(r["alpha"], 4)
+            V[f"human-{letters[name]}-{slug}-acc"] = fmt(r["accuracy"], 0, percent=True)
+        V[f"human-{slug}-range"] = fmt_range(alphas)
+        V[f"human-{slug}-reading"] = " / ".join(dict.fromkeys(human_verdict(a) for a in alphas))
+
+    for name in names:
+        x = letters[name]
+        V[f"human-claims-{x}"] = str(report[name]["claims"])
+        V[f"human-mixed-{x}"] = str(report[name]["mixed"])
+    gaps = [report[n]["unsupported_gap"] for n in names]
+    V["human-unsup-range"] = fmt_range([g["as written"]["human_rate"] for g in gaps], 0, percent=True)
+    V["human-scunsup-reg-range"] = fmt_range([g["as written"]["scorer_rate"] for g in gaps], 0, percent=True)
+    V["human-scunsup-d-range"] = fmt_range([g["de-attributed"]["scorer_rate"] for g in gaps], 0, percent=True)
+    for name, g in zip(names, gaps):
+        for view, slug in (("as written", "reg"), ("de-attributed", "d")):
+            d = g[view]
+            V[f"human-{letters[name]}-unsupgap-{slug}-ci"] = fmt_ci(d["diff"], d["ci_lo"], d["ci_hi"], 2)
+
+    choice = report["primary_faithfulness"]
+    V["human-primary"] = "corrected" if choice["choice"] == "de-attributed" else "planned"
+    V["human-basis-n"] = str(choice["n_items"])
+    V["human-alpha-reg"] = fmt(choice["alpha_as_written"], 2)
+    V["human-alpha-deattr"] = fmt(choice["alpha_deattr"], 2)
+    gain = choice["gain"]
+    V["human-gain-ci"] = fmt_ci(gain["diff"], gain["ci_lo"], gain["ci_hi"], 2)
+    V["human-gain-zero"] = "excludes" if gain["excludes_zero"] else "includes"
+
+    for view, slug in (("registered", "reg"), ("polarity_only", "pol")):
+        e = report["polar_error"][view]
+        V[f"human-polerr-{slug}"] = fmt(e["error"], 1, percent=True)
+        V[f"human-polerr-{slug}-ci"] = (f"{fmt(e['error'], 1, percent=True)} [{fmt(e['ci_lo'], 1, percent=True)}, "
+                                        f"{fmt(e['ci_hi'], 1, percent=True)}]")
+        V[f"human-polerr-{slug}-n"] = str(e["n"])
+
+    alpha_col = r"$\alpha$ [95\% CI]"
+    panels = [
+        ("Between the two annotators", pd.DataFrame(
+            [{"Labels": name, "With": "A vs B", "n": V[f"human-ab-{slug}-n"],
+              "Agr.": V[f"human-ab-{slug}-acc"], alpha_col: table_ci(row(between, label)),
+              "Reading": human_verdict(row(between, label)["alpha"]) + ("$^{a}$" if slug == "claim" else "")}
+             for label, slug, name in HUMAN_BETWEEN])),
+        ("Each annotator against the automatic measure", pd.DataFrame(
+            [{"Labels": reader if name == names[0] else "", "With": letters[name].upper(),
+              "n": str(int(row(f"{name} vs scorer", label)["n"])),
+              "Agr.": V[f"human-{letters[name]}-{slug}-acc"],
+              alpha_col: table_ci(row(f"{name} vs scorer", label)),
+              "Reading": human_verdict(row(f"{name} vs scorer", label)["alpha"])}
+             for label, slug, reader in HUMAN_VS_SCORER for name in names])),
+    ]
+    note = (f"{V['human-n']} statements from {V['human-n-summaries']} summaries, labelled by two annotators "
+            "(A and B) who did not know which model or prompt wrote them. Agr.: share of statements with the "
+            r"same label. $\alpha$: Krippendorff's $\alpha$ (nominal) with a 95\% bootstrap interval over "
+            r"statements, read as fixed in advance: good from 0.80, acceptable from 0.667, exploratory below. "
+            "Sentiment comparisons leave out statements an annotator called mixed, and faithfulness "
+            "comparisons statements an annotator did not call a claim. "
+            f"$^{{a}}$Both annotators called almost every statement a claim ({V['human-claims-a']} and "
+            f"{V['human-claims-b']} of {V['human-n']}), so $\\alpha$ is low and unstable although they agree on "
+            f"{V['human-ab-claim-acc']} of statements. $^{{b}}$Statements the annotator called positive or negative.")
+    if borderline:
+        note += (f" $^{{c}}$Rounded across a threshold; unrounded {' and '.join(borderline)}, "
+                 "which the reading uses.")
+    (GEN / "tab_human.tex").write_text(panel_table(
+        panels, caption="Part~A of the human evaluation: agreement between the annotators and with the "
+        "automatic measures, statement by statement.", label="tab:human", align="L{3.6cm}lrrll",
+        note=note, size=r"\small", colsep="4pt"), encoding="utf-8")
+
+
+def human_envelope_numbers(cfg, models: list[str], V: dict) -> None:
+    """The classifier-error envelope with the error rate measured on summary statements in Part A
+    instead of on reviews. The envelope is linear in the error rate (stats.ma_from_misclassification),
+    so each row's envelope is rescaled exactly. Under symmetric error a gap beyond the envelope is
+    one that stays below zero after a Rogan-Gladen correction (method section)."""
+    path = cfg.results_dir / "human_check.json"
+    if not path.exists():
+        return
+    summary_error = {view: json.loads(path.read_text(encoding="utf-8"))["polar_error"][view]["error"]
+                     for view in ("registered", "polarity_only")}
+    res = cfg.results_dir
+    hybrid = json.loads((res / "sentiment_validation_hybrid.json").read_text(encoding="utf-8"))
+    siebert = json.loads((res / "sentiment_validation.json").read_text(encoding="utf-8"))
+    review_error = {"registered": 1 - hybrid["polar_accuracy"], "polarity_only": 1 - siebert["accuracy"]}
+    V["human-reverr-pol"] = fmt(review_error["polarity_only"], 0, percent=True)
+    d = pd.read_csv(res / "tables" / "ma_by_direction.csv")
+    d = d[d["model"].isin(models)].copy()
+    d["envelope_summary"] = d["envelope"] * d["view"].map(summary_error) / d["view"].map(review_error)
+    d["beyond_summary"] = d["ci_hi"] < d["envelope_summary"]
+    for view, short in (("registered", "reg"), ("polarity_only", "pol")):
+        v = d[d["view"] == view]
+        V[f"human-env-{short}"] = fmt(v["envelope_summary"].mean())
+        for (cond, direction), g in v[v["dataset"] == "both"].groupby(["condition", "direction"]):
+            V[f"madirbeyondsum-{short}-{cslug(cond)}-{DIRS[direction]}"] = str(int(g["beyond_summary"].sum()))
+        V[f"human-beyondchange-{short}"] = str(int((v["beyond_summary"] & ~v["beyond_envelope"]).sum()))
+        V[f"human-beyondlost-{short}"] = str(int((~v["beyond_summary"] & v["beyond_envelope"]).sum()))
+        V[f"human-beyondrows-{short}"] = str(len(v))
 
 
 def main() -> None:
@@ -1278,6 +1437,7 @@ def main() -> None:
             (GEN / "tab_controls.tex").write_text(ctable, encoding="utf-8")
         (GEN / "tab_cluster.tex").write_text(clustered_numbers(cfg, views, complete, V), encoding="utf-8")
         directions = direction_numbers(cfg, complete, V)
+        human_envelope_numbers(cfg, complete, V)
         abs_distortion_numbers(cfg, complete, V)
         (GEN / "tab_length.tex").write_text(length_numbers(s, complete, V, controls), encoding="utf-8")
         (GEN / "appendix_tables.tex").write_text(appendix_tables(complete, views), encoding="utf-8")

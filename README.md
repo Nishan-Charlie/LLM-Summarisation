@@ -29,8 +29,11 @@ recorded as dated amendments. Both are in [docs/design/](docs/design/).
   toward an even split, so the minority looks more common than it is.
 - The effect of keywords on unsupported statements depended on the model.
 
-These findings come from the automatic scorers. The human evaluation described below is not
-finished. The numbers are in [results/kw/week1/tables/](results/kw/week1/tables/) and
+These findings come from the automatic scorers. Part A of the human evaluation (below) confirms the
+sentiment classifier on summary statements, so the proportion finding holds when its errors are
+measured there. It does not confirm the NLI faithfulness check, so the faithfulness finding is
+exploratory. Part B, which checks coverage and proportions on whole summaries, is not finished. The
+numbers are in [results/kw/week1/tables/](results/kw/week1/tables/) and
 [results/kw/controls/tables/](results/kw/controls/tables/).
 
 ## Repository layout
@@ -207,15 +210,19 @@ imbalance level or scorer output.
 
 ```bash
 python scripts/kw_human_check.py make  --config configs/kw_week1.toml   # draw the blinded sample
-python scripts/kw_human_check.py check --config configs/kw_week1.toml   # compare labels with the scorer
+python scripts/kw_human_check.py check --config configs/kw_week1.toml --annotators prathyuman annotator4
 ```
 
 Annotators can fill the spreadsheets in `annotations/kw_human_check/` or label on the web page in
 [tools/kw_label_site/](tools/kw_label_site/), a static page with a small serverless API. The
 `web-items` and `from-web` actions of `kw_human_check.py` move items to the page and labels back.
 
-The spreadsheets in the repository hold the blinded sample with empty label columns. Completed
-labels are not included yet.
+**Part A is complete.** Two annotators labelled all 100 statements on the web page. Their labels are in
+`annotations/kw_human_check/labels_prathyuman.xlsx` and `labels_annotator4.xlsx`, written by `from-web`
+from the page's export (`web_export_2026-10-30.json`, which also holds unfinished labels from other
+accounts that the analysis does not use). `check` writes the agreement figures, each with a 95%
+bootstrap interval over statements, to `results/kw/week1/tables/human_check.csv` and
+`results/kw/week1/human_check.json`.
 
 ## Design record
 

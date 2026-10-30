@@ -16,8 +16,11 @@ from fairsum.kwsum.human_check import (
     HumanCheckSheetError,
     SHEET_COLUMNS,
     SampledSummary,
+    alpha_gain,
     binary_support,
+    bootstrap_agreement,
     compare,
+    polar_error,
     item_ids,
     read_key,
     read_sheet,
@@ -274,6 +277,60 @@ class TestAgreement:
         assert gap["diff"] == pytest.approx(0.5)
         assert gap["ci_lo"] <= 0.5 <= gap["ci_hi"]
         assert gap["n_summaries"] == 2
+
+
+class TestIntervals:
+    """Amendment 10: every Part A agreement figure, and the gain of the corrected check, gets a
+    95% bootstrap interval over statements."""
+
+    @staticmethod
+    def labels(n: int, wrong: set[int], values=("supported", "not_supported")) -> tuple[dict, dict]:
+        a = {str(i): values[i % 2] for i in range(n)}
+        b = {i: (values[1 - values.index(v)] if int(i) in wrong else v) for i, v in a.items()}
+        return a, b
+
+    def test_interval_brackets_the_point_estimates(self):
+        a, b = self.labels(60, wrong={1, 7, 20, 33, 41})
+        point = compare(a, b)
+        ci = bootstrap_agreement(a, b, n_boot=400, seed=0)
+        assert ci["n"] == 60
+        assert ci["acc_lo"] <= point.accuracy <= ci["acc_hi"]
+        assert ci["alpha_lo"] <= point.alpha <= ci["alpha_hi"]
+        assert ci["acc_lo"] < ci["acc_hi"]
+
+    def test_interval_is_reproducible(self):
+        a, b = self.labels(40, wrong={3, 9})
+        assert bootstrap_agreement(a, b, n_boot=200, seed=5) == bootstrap_agreement(a, b, n_boot=200, seed=5)
+
+    def test_repeated_statements_in_a_resample_are_separate_units(self):
+        # If a resample's duplicates collapsed into one unit, alpha would be computed on fewer
+        # pairs and perfect agreement would no longer give a degenerate interval at 1.
+        a, _ = self.labels(30, wrong=set())
+        ci = bootstrap_agreement(a, dict(a), n_boot=100, seed=0)
+        assert ci["alpha_lo"] == pytest.approx(1.0) and ci["alpha_hi"] == pytest.approx(1.0)
+
+    def test_gain_is_positive_when_the_second_scorer_matches_people(self):
+        human, worse = self.labels(60, wrong=set(range(0, 60, 4)))
+        gain = alpha_gain(human, worse, dict(human), n_boot=400, seed=0)
+        assert gain["n"] == 60
+        assert gain["diff"] == pytest.approx(compare(human, human).alpha - compare(human, worse).alpha)
+        assert gain["ci_lo"] > 0 and gain["excludes_zero"]
+
+    def test_gain_uses_only_statements_all_three_label(self):
+        human = {"1": "supported", "2": "not_supported", "3": "supported", "4": None}
+        first = {"1": "supported", "2": "supported", "3": "supported", "4": "supported"}
+        second = {"1": "supported", "2": "not_supported", "4": "supported"}
+        assert alpha_gain(human, first, second, n_boot=50, seed=0)["n"] == 2
+
+    def test_polar_error_counts_flips_among_statements_both_call_polar(self):
+        human = {"1": "positive", "2": "negative", "3": "neutral", "4": "positive", "5": "negative"}
+        scorer = {"1": "positive", "2": "positive", "3": "negative", "4": "neutral", "5": "negative"}
+        err = polar_error(human, scorer, n_boot=200, seed=0)
+        assert err["n"] == 3  # 3 is not polar for people, 4 not for the classifier
+        assert err["error"] == pytest.approx(1 / 3)
+        assert err["neg_as_pos"] == pytest.approx(1 / 2)
+        assert err["pos_as_neg"] == pytest.approx(0.0)
+        assert 0 <= err["ci_lo"] <= err["error"] <= err["ci_hi"] <= 1
 
 
 class TestWebRoute:

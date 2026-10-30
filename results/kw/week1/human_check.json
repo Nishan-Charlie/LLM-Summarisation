@@ -1,0 +1,91 @@
+{
+  "annotators": [
+    "prathyuman",
+    "annotator4"
+  ],
+  "prathyuman": {
+    "n": 100,
+    "claims": 99,
+    "mixed": 10,
+    "unsupported_gap": {
+      "as written": {
+        "n_items": 99,
+        "n_summaries": 25,
+        "human_rate": 0.16161616161616163,
+        "scorer_rate": 0.6767676767676768,
+        "diff": 0.5151515151515151,
+        "ci_lo": 0.4020618556701031,
+        "ci_hi": 0.6161616161616161
+      },
+      "de-attributed": {
+        "n_items": 99,
+        "n_summaries": 25,
+        "human_rate": 0.16161616161616163,
+        "scorer_rate": 0.5151515151515151,
+        "diff": 0.3535353535353535,
+        "ci_lo": 0.24483611626468765,
+        "ci_hi": 0.45918367346938777
+      }
+    },
+    "alpha_binary_as_written": -0.09387113672079628,
+    "alpha_binary_deattr": 0.16953400934259988
+  },
+  "annotator4": {
+    "n": 100,
+    "claims": 95,
+    "mixed": 9,
+    "unsupported_gap": {
+      "as written": {
+        "n_items": 95,
+        "n_summaries": 25,
+        "human_rate": 0.1368421052631579,
+        "scorer_rate": 0.6736842105263158,
+        "diff": 0.5368421052631579,
+        "ci_lo": 0.4221929824561403,
+        "ci_hi": 0.6316058002148227
+      },
+      "de-attributed": {
+        "n_items": 95,
+        "n_summaries": 25,
+        "human_rate": 0.1368421052631579,
+        "scorer_rate": 0.5052631578947369,
+        "diff": 0.368421052631579,
+        "ci_lo": 0.25806451612903225,
+        "ci_hi": 0.47827243293246996
+      }
+    },
+    "alpha_binary_as_written": -0.1512469831053902,
+    "alpha_binary_deattr": 0.11132291269538697
+  },
+  "primary_faithfulness": {
+    "choice": "de-attributed",
+    "n_items": 87,
+    "alpha_as_written": -0.22869318181818188,
+    "alpha_deattr": 0.027447089947089887,
+    "gain": {
+      "n": 87,
+      "diff": 0.25614027176527177,
+      "ci_lo": 0.13899859628394726,
+      "ci_hi": 0.378061406582835,
+      "excludes_zero": true
+    }
+  },
+  "polar_error": {
+    "registered": {
+      "n": 70,
+      "error": 0.02857142857142857,
+      "ci_lo": 0.0,
+      "ci_hi": 0.07142857142857142,
+      "pos_as_neg": 0.0,
+      "neg_as_pos": 0.05555555555555555
+    },
+    "polarity_only": {
+      "n": 78,
+      "error": 0.05128205128205128,
+      "ci_lo": 0.01282051282051282,
+      "ci_hi": 0.10256410256410256,
+      "pos_as_neg": 0.05128205128205128,
+      "neg_as_pos": 0.05128205128205128
+    }
+  }
+}

@@ -31,9 +31,9 @@ import pandas as pd
 from fairsum.kwsum.collections import read_collections
 from fairsum.kwsum.config import COLLECTIONS_PATH, REPO_ROOT, load_config
 from fairsum.kwsum.human_check import (
-    HumanCheckSheetError, binary_support, compare, item_ids, read_key, read_sheet, sample_summaries,
-    scorer_labels, sentiment_view, support_view, unsupported_rate_gap, web_items, web_labels,
-    write_key, write_reading_pack, write_sheet,
+    HumanCheckSheetError, alpha_gain, binary_support, bootstrap_agreement, compare, item_ids,
+    polar_error, read_key, read_sheet, sample_summaries, scorer_labels, sentiment_view, support_view,
+    unsupported_rate_gap, web_items, web_labels, write_key, write_reading_pack, write_sheet,
 )
 from fairsum.kwsum.store import read_jsonl
 
@@ -135,34 +135,38 @@ def check(args, cfg) -> int:
     scorer_support = {i: s["support"] for i, s in scorer.items()}
     scorer_support_d = {i: s["support_deattr"] for i, s in scorer.items()}
 
-    rows, report = [], {}
+    rows, report = [], {"annotators": list(humans)}
+
+    def measure(comparison: str, label: str, a: dict, b: dict, other: str = "scorer"):
+        """One agreement figure with its bootstrap interval (amendment 10), printed and kept."""
+        res, ci = compare(a, b), bootstrap_agreement(a, b)
+        print(f"{label}: n={res.n} accuracy={res.accuracy:.3f} [{ci['acc_lo']:.3f}, {ci['acc_hi']:.3f}] "
+              f"alpha={res.alpha:.3f} [{ci['alpha_lo']:.3f}, {ci['alpha_hi']:.3f}] -> {verdict(res.alpha)}")
+        print(f"  confusion (first, {other}): "
+              + ", ".join(f"{h}->{s}: {c}" for (h, s), c in sorted(res.confusion.items())))
+        rows.append({"comparison": comparison, "label": label, "n": res.n, "accuracy": res.accuracy,
+                     "acc_lo": ci["acc_lo"], "acc_hi": ci["acc_hi"], "alpha": res.alpha,
+                     "alpha_lo": ci["alpha_lo"], "alpha_hi": ci["alpha_hi"], "verdict": verdict(res.alpha)})
+        return res
+
     for name, human in humans.items():
         n = len(human)
         claims = sum(l["claim"] == "yes" for l in human.values())
         mixed = sum(l["sentiment"] == "mixed" for l in human.values())
-        sent = compare(sentiment_view(human), scorer_sent)
         polar_items = {i: v for i, v in sentiment_view(human).items() if v != "neutral"}
-        polar = compare(polar_items, scorer_polar)
         human_sup = support_view(human)
-        sup = compare(human_sup, scorer_support)
-        sup_d = compare(human_sup, scorer_support_d)
-        bin_reg = compare(binary_support(human_sup), binary_support(scorer_support))
-        bin_d = compare(binary_support(human_sup), binary_support(scorer_support_d))
         print(f"\n=== {name} vs scorer ===")
         print(f"claims: {claims} of {n} ({n - claims} kept by the splitter but not claims)")
         print(f"mixed sentiment: {mixed} of {claims} claims (left out of the sentiment comparison)")
-        for label, res in (("sentiment (hybrid, 3 classes)", sent),
-                           ("sentiment (polarity model, human-polar items)", polar),
-                           ("support as written (3 classes)", sup),
-                           ("support de-attributed (3 classes)", sup_d),
-                           ("support as written (supported vs not)", bin_reg),
-                           ("support de-attributed (supported vs not)", bin_d)):
-            print(f"{label}: n={res.n} accuracy={res.accuracy:.3f} alpha={res.alpha:.3f} "
-                  f"-> {verdict(res.alpha)}")
-            print("  confusion (human, scorer): "
-                  + ", ".join(f"{h}->{s}: {c}" for (h, s), c in sorted(res.confusion.items())))
-            rows.append({"comparison": f"{name} vs scorer", "label": label, "n": res.n,
-                         "accuracy": res.accuracy, "alpha": res.alpha, "verdict": verdict(res.alpha)})
+        comparison = f"{name} vs scorer"
+        measure(comparison, "sentiment (hybrid, 3 classes)", sentiment_view(human), scorer_sent)
+        measure(comparison, "sentiment (polarity model, human-polar items)", polar_items, scorer_polar)
+        measure(comparison, "support as written (3 classes)", human_sup, scorer_support)
+        measure(comparison, "support de-attributed (3 classes)", human_sup, scorer_support_d)
+        bin_reg = measure(comparison, "support as written (supported vs not)",
+                          binary_support(human_sup), binary_support(scorer_support))
+        bin_d = measure(comparison, "support de-attributed (supported vs not)",
+                        binary_support(human_sup), binary_support(scorer_support_d))
         gaps = {}
         for label, scorer_map in (("as written", scorer_support), ("de-attributed", scorer_support_d)):
             gap = gaps[label] = unsupported_rate_gap(human_sup, scorer_map)
@@ -180,25 +184,44 @@ def check(args, cfg) -> int:
     a_reg = compare(binary_support(basis), binary_support(scorer_support)).alpha
     a_d = compare(binary_support(basis), binary_support(scorer_support_d)).alpha
     primary = primary_faithfulness(a_reg, a_d)
+    # Amendment 10: the difference gets an interval, and we say whether it excludes zero. The
+    # registered 0.05 rule above is what decides; the interval only qualifies it.
+    gain = alpha_gain(binary_support(basis), binary_support(scorer_support),
+                      binary_support(scorer_support_d))
     print(f"\nprimary faithfulness score by the registered rule ({len(basis)} items"
           f"{', annotators agree' if len(views) > 1 else ''}): {primary} "
-          f"(alpha as written {a_reg:.3f}, de-attributed {a_d:.3f})")
+          f"(alpha as written {a_reg:.3f}, de-attributed {a_d:.3f}; difference {gain['diff']:+.3f} "
+          f"[{gain['ci_lo']:+.3f}, {gain['ci_hi']:+.3f}], "
+          f"{'excludes' if gain['excludes_zero'] else 'includes'} zero)")
     report["primary_faithfulness"] = {"choice": primary, "n_items": len(basis),
-                                      "alpha_as_written": a_reg, "alpha_deattr": a_d}
+                                      "alpha_as_written": a_reg, "alpha_deattr": a_d, "gain": gain}
+
+    # The classifier's polarity error on summary statements, on the statements the annotators
+    # agree are positive or negative: the input of the misclassification envelope, which the
+    # paper otherwise takes from reviews (the Rogan-Gladen correction of the method section).
+    sentiments = [{i: l["sentiment"] for i, l in h.items() if l["claim"] == "yes"} for h in humans.values()]
+    agreed = sentiments[0] if len(sentiments) == 1 else {
+        i: v for i, v in sentiments[0].items() if sentiments[1].get(i) == v}
+    report["polar_error"] = {}
+    print(f"\nclassifier polarity error on summary statements ({len(agreed)} statements"
+          f"{' with agreed sentiment' if len(sentiments) > 1 else ''}):")
+    for view, scorer_map in (("registered", scorer_sent), ("polarity_only", scorer_polar)):
+        err = report["polar_error"][view] = polar_error(agreed, scorer_map)
+        print(f"  {view}: {err['error']:.3f} [{err['ci_lo']:.3f}, {err['ci_hi']:.3f}] on {err['n']} "
+              f"(positive read as negative {err['pos_as_neg']:.3f}, negative as positive "
+              f"{err['neg_as_pos']:.3f})")
 
     names = list(humans)
     if len(names) >= 2:
         a, b = humans[names[0]], humans[names[1]]
         print(f"\n=== {names[0]} vs {names[1]} ===")
+        comparison = f"{names[0]} vs {names[1]}"
         for label, view in (("claim", lambda h: {i: l["claim"] for i, l in h.items()}),
                             ("sentiment (4 classes)",
                              lambda h: {i: l["sentiment"] for i, l in h.items() if l["claim"] == "yes"}),
-                            ("support (3 classes)", support_view)):
-            res = compare(view(a), view(b))
-            print(f"{label}: n={res.n} accuracy={res.accuracy:.3f} alpha={res.alpha:.3f} "
-                  f"-> {verdict(res.alpha)}")
-            rows.append({"comparison": f"{names[0]} vs {names[1]}", "label": label, "n": res.n,
-                         "accuracy": res.accuracy, "alpha": res.alpha, "verdict": verdict(res.alpha)})
+                            ("support (3 classes)", support_view),
+                            ("support (supported vs not)", lambda h: binary_support(support_view(h)))):
+            measure(comparison, label, view(a), view(b), other=names[1])
 
     tables = cfg.results_dir / "tables"
     tables.mkdir(parents=True, exist_ok=True)
