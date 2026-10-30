@@ -19,10 +19,11 @@ This note fixes only what those amendments leave open. Where it and they differ,
   under the current scorer (version 4).
 - Seed 2026. Cells and models are visited in sorted order, the model order is shuffled within each
   cell, and each model draws 2 collections from those still free in the cell.
-- Which summary is A is drawn per collection under the same seed. Set ids `B01`–`B80` are assigned
-  after a shuffle, so their order says nothing about model, dataset or level.
+- Which summary is A is drawn per collection under the same seed.
 - Groups (amendment 10): the 80 sets are shuffled under the seed; the first 10 are the shared group,
   the next 35 group 1 and the last 35 group 2.
+- Set ids `B01`–`B80` are assigned after a second shuffle. Their order says nothing about model,
+  dataset or level, and each annotator's 45 sets mix the shared ones with their own group's.
 
 ## 2. Page
 

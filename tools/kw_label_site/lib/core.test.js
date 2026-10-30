@@ -117,3 +117,66 @@ test("a session names its annotator until it expires, and a changed one names no
   assert.equal(verifySession(token, "t".repeat(40), now), null);                // other secret
   assert.equal(verifySession("tok-nish-0123456789abcdef", SECRET, now), null);   // not a session
 });
+
+// --- Part B --------------------------------------------------------------------------------
+
+import { completeB, itemsFor, validateDataB, validateLabelsB } from "./core.js";
+
+test("Part B saves are kept apart from Part A's, and Part A's are unaffected", () => {
+  const blobs = [
+    { pathname: "labels/prathyuman/S07/a.json", uploadedAt: "2026-10-02T05:00:00.000Z", url: "a1" },
+    { pathname: "partb/labels/prathyuman/B03/x.json", uploadedAt: "2026-10-31T05:00:00.000Z", url: "b1" },
+    { pathname: "partb/labels/prathyuman/B03/y.json", uploadedAt: "2026-10-31T05:01:00.000Z", url: "b2" },
+    { pathname: "partb/config/1.json", uploadedAt: "2026-10-31T04:00:00.000Z", url: "c1" },
+  ];
+  assert.deepEqual(latestPerSummary(blobs), { prathyuman: { S07: "a1" } });
+  assert.deepEqual(latestPerSummary(blobs, "partb/labels"), { prathyuman: { B03: "b2" } });
+});
+
+const SET = (id, group, extra = {}) => ({ id, group, topic: "Lumia", minority: "negative",
+  summaries: { A: "a", B: "b" }, reviews: { positive: ["p1", "p2"], negative: ["n1"] }, ...extra });
+const PARTB = { status: "open", guide: ["line"], assign: { ann1: ["g1", "shared"], ann2: ["g1", "g2", "shared"] },
+  items: [SET("P1", undefined, { practice: true }), SET("B01", "shared"), SET("B02", "g1"), SET("B03", "g2")] };
+
+test("Part B data must have the shape the page relies on", () => {
+  assert.equal(validateDataB(PARTB).ok, true);
+  assert.match(validateDataB({ ...PARTB, assign: { "Bad Name": ["g1"] } }).error, /not allowed/);
+  assert.match(validateDataB({ ...PARTB, assign: { ann1: ["g9"] } }).error, /groups/);
+  assert.match(validateDataB({ ...PARTB, items: [SET("B01", "g7")] }).error, /group/);
+  assert.match(validateDataB({ ...PARTB, items: [SET("B01", "g1", { summaries: { A: "a" } })] }).error, /summaries/);
+  assert.match(validateDataB({ ...PARTB, items: [SET("B01", "g1", { minority: "neutral" })] }).error, /minority/);
+});
+
+test("each annotator sees the practice set and their own groups, and nobody else's", () => {
+  assert.deepEqual(itemsFor(PARTB, "ann1").map((it) => it.id), ["P1", "B01", "B02"]);
+  assert.deepEqual(itemsFor(PARTB, "ann2").map((it) => it.id), ["P1", "B01", "B02", "B03"]);
+  assert.equal(itemsFor(PARTB, "stranger"), null);
+});
+
+const STEP1 = { revealed: false, A: { q2: "mostly_positive" }, B: { q2: "Evenly_Split" } };
+const STEP2 = { revealed: true, A: { q2: "mostly_positive", q1: "some", q3: "no", q4: "clear", note: " fine " },
+  B: { q2: "evenly_split", q1: "most", q3: "yes", q4: "minor_problems" } };
+
+test("Part B answers are normalised; unknown values and oversized notes are refused", () => {
+  const out = validateLabelsB(STEP1);
+  assert.equal(out.ok, true);
+  assert.equal(out.labels.B.q2, "evenly_split");
+  assert.equal(completeB(out.labels), false);
+  const done = validateLabelsB(STEP2, out.labels);
+  assert.equal(done.ok, true);
+  assert.equal(done.labels.A.note, "fine");
+  assert.equal(completeB(done.labels), true);
+  assert.match(validateLabelsB({ ...STEP1, A: { q2: "very_positive" } }).error, /q2/);
+  assert.match(validateLabelsB({ ...STEP2, A: { ...STEP2.A, note: "x".repeat(501) } }).error, /note/);
+});
+
+test("the two steps come in order, and step 1 is fixed once the reviews are open", () => {
+  assert.match(validateLabelsB({ revealed: true, A: { q2: "mostly_positive" }, B: {} }).error, /before opening/);
+  assert.match(validateLabelsB({ revealed: false, A: { q2: "mostly_positive", q1: "some" }, B: {} }).error, /Open the reviews/);
+  const saved = validateLabelsB(STEP2).labels;
+  assert.match(validateLabelsB({ ...STEP2, A: { ...STEP2.A, q2: "evenly_split" } }, saved).error, /can't be changed/);
+  assert.match(validateLabelsB(STEP1, saved).error, /already open/);
+  assert.equal(validateLabelsB({ ...STEP2, B: { ...STEP2.B, q1: "none" } }, saved).ok, true);  // step 2 can still change
+  // Before the reviews are open, the overall feeling can still be revised.
+  assert.equal(validateLabelsB({ ...STEP1, A: { q2: "almost_all_positive" } }, validateLabelsB(STEP1).labels).ok, true);
+});

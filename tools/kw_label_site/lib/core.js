@@ -128,17 +128,113 @@ export function validateData(d) {
   return { ok: true };
 }
 
-/** From a blob listing of labels/<annotator>/<summary>/<file>, the URL of each summary's latest save. */
-export function latestPerSummary(blobs) {
+/** From a blob listing of <root>/<annotator>/<summary>/<file>, the URL of each summary's latest save. */
+export function latestPerSummary(blobs, root = "labels") {
   const best = {};
+  const prefix = `${root}/`;
   for (const b of blobs) {
-    const parts = String(b.pathname).split("/");
-    if (parts.length !== 4 || parts[0] !== "labels") continue;
-    const [, who, sid] = parts;
+    const path = String(b.pathname);
+    if (!path.startsWith(prefix)) continue;
+    const parts = path.slice(prefix.length).split("/");
+    if (parts.length !== 3) continue;
+    const [who, sid] = parts;
     const at = Date.parse(b.uploadedAt);
     best[who] = best[who] || {};
     if (!best[who][sid] || at > best[who][sid].at) best[who][sid] = { at, url: b.url };
   }
   return Object.fromEntries(Object.entries(best).map(([who, sids]) =>
     [who, Object.fromEntries(Object.entries(sids).map(([sid, v]) => [sid, v.url]))]));
+}
+
+// --- Part B: whole summaries (amendments 9 and 10). Each set has summaries A and B. Step 1 asks
+// the overall feeling of each summary on its own (q2); step 2 opens the reviews and asks minority
+// coverage (q1), unsupported content (q3) and readability (q4). Once the reviews are open, q2 is
+// fixed: the server refuses a save that changes it.
+
+export const VALUES_B = {
+  q1: ["none", "some", "most"],
+  q2: ["almost_all_negative", "mostly_negative", "evenly_split", "mostly_positive", "almost_all_positive"],
+  q3: ["yes", "no"],
+  q4: ["clear", "minor_problems", "hard_to_read"],
+};
+const GROUPS_B = ["g1", "g2", "shared"];
+const SLOTS = ["A", "B"];
+
+/** The Part B study data the owner seeds: {status, guide, assign, items}. */
+export function validateDataB(d) {
+  const fail = (error) => ({ ok: false, error });
+  if (!d || typeof d !== "object") return fail("data must be an object");
+  if (!["practice", "open", "closed"].includes(d.status)) return fail("status must be practice, open or closed");
+  if (!Array.isArray(d.guide) || !d.guide.every((l) => typeof l === "string")) return fail("guide must be a list of lines");
+  if (!d.assign || typeof d.assign !== "object" || Array.isArray(d.assign)) return fail("assign must map names to groups");
+  for (const [name, groups] of Object.entries(d.assign)) {
+    if (!NAME_RE.test(name)) return fail(`annotator name ${JSON.stringify(name)} is not allowed`);
+    if (!Array.isArray(groups) || !groups.length || !groups.every((g) => GROUPS_B.includes(g))) {
+      return fail(`${name}: groups must come from ${GROUPS_B.join("/")}`);
+    }
+  }
+  if (!Array.isArray(d.items) || d.items.length === 0) return fail("items must be a non-empty list");
+  const seen = new Set();
+  const texts = (a) => Array.isArray(a) && a.every((r) => typeof r === "string");
+  for (const it of d.items) {
+    if (!it || typeof it.id !== "string" || !/^[A-Za-z0-9]{1,8}$/.test(it.id)) return fail("every item needs a short id");
+    if (seen.has(it.id)) return fail(`duplicate item ${it.id}`);
+    seen.add(it.id);
+    if (typeof it.topic !== "string") return fail(`${it.id}: needs a topic`);
+    if (!it.summaries || !SLOTS.every((s) => typeof it.summaries[s] === "string" && it.summaries[s].trim())) {
+      return fail(`${it.id}: needs summaries A and B`);
+    }
+    if (!it.reviews || !texts(it.reviews.positive) || !texts(it.reviews.negative)
+        || it.reviews.positive.length + it.reviews.negative.length === 0) return fail(`${it.id}: needs its reviews, grouped`);
+    if (!["positive", "negative"].includes(it.minority)) return fail(`${it.id}: minority must be positive or negative`);
+    if (!it.practice && !GROUPS_B.includes(it.group)) return fail(`${it.id}: group must be one of ${GROUPS_B.join("/")}`);
+  }
+  return { ok: true };
+}
+
+/** The sets one annotator labels (the practice set plus their groups), or null when they are not
+ * on the list. */
+export function itemsFor(data, who) {
+  const groups = data && data.assign ? data.assign[who] : null;
+  if (!Array.isArray(groups)) return null;
+  return data.items.filter((it) => it.practice || groups.includes(it.group));
+}
+
+export function completeB(labels) {
+  return !!labels && labels.revealed === true
+    && SLOTS.every((s) => labels[s] && Object.keys(VALUES_B).every((q) => !!labels[s][q]));
+}
+
+/** One set's answers, as the page sends them, checked against the order of the two steps and
+ * against the last save (`previous`), so step 1 cannot change once the reviews are open. */
+export function validateLabelsB(body, previous = null) {
+  const fail = (error) => ({ ok: false, error });
+  if (!body || typeof body !== "object" || Array.isArray(body)) return fail("labels must be an object");
+  const out = { revealed: body.revealed === true };
+  for (const slot of SLOTS) {
+    const src = body[slot] && typeof body[slot] === "object" ? body[slot] : {};
+    out[slot] = { q1: null, q2: null, q3: null, q4: null, note: "" };
+    for (const q of Object.keys(VALUES_B)) {
+      const v = norm(src[q]);
+      if (!v) continue;
+      if (!VALUES_B[q].includes(v)) return fail(`${slot}: ${q} "${v}" is not one of ${VALUES_B[q].join("/")}`);
+      out[slot][q] = v;
+    }
+    const note = typeof src.note === "string" ? src.note.trim() : "";
+    if (note.length > MAX_NOTE) return fail(`${slot}: note longer than ${MAX_NOTE} characters`);
+    out[slot].note = note;
+  }
+  if (out.revealed && !SLOTS.every((s) => out[s].q2)) {
+    return fail("Give the overall feeling of both summaries before opening the reviews.");
+  }
+  if (!out.revealed && SLOTS.some((s) => out[s].q1 || out[s].q3 || out[s].q4)) {
+    return fail("Open the reviews before answering those questions.");
+  }
+  if (previous && previous.revealed === true) {
+    if (!out.revealed) return fail("The reviews are already open for this set.");
+    for (const s of SLOTS) {
+      if (out[s].q2 !== ((previous[s] || {}).q2 || null)) return fail("The overall feeling can't be changed once the reviews are open.");
+    }
+  }
+  return { ok: true, labels: out };
 }
